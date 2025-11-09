@@ -1,0 +1,122 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import type { OHLCV } from '@/types';
+
+interface CandlestickChartProps {
+  data: OHLCV[];
+  symbol: string;
+}
+
+export function CandlestickChart({ data, symbol }: CandlestickChartProps) {
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<any>(null);
+  const seriesRef = useRef<any>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  // Only run on client side
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient || !chartContainerRef.current || data.length === 0) return;
+
+    // Dynamic import to avoid SSR issues
+    import('lightweight-charts').then(({ createChart, ColorType }) => {
+      if (!chartContainerRef.current) return;
+
+      // Clean up previous chart
+      if (chartRef.current) {
+        chartRef.current.remove();
+        chartRef.current = null;
+      }
+
+      // Create chart
+      const chart = createChart(chartContainerRef.current, {
+        layout: {
+          background: { type: ColorType.Solid, color: '#111827' },
+          textColor: '#9ca3af',
+        },
+        grid: {
+          vertLines: { color: '#1f2937' },
+          horzLines: { color: '#1f2937' },
+        },
+        width: chartContainerRef.current.clientWidth,
+        height: 400,
+        timeScale: {
+          timeVisible: true,
+          secondsVisible: false,
+          borderColor: '#374151',
+        },
+        rightPriceScale: {
+          borderColor: '#374151',
+        },
+      });
+
+      chartRef.current = chart;
+
+      // Add candlestick series
+      const candlestickSeries = chart.addCandlestickSeries({
+        upColor: '#10b981',
+        downColor: '#ef4444',
+        borderDownColor: '#ef4444',
+        borderUpColor: '#10b981',
+        wickDownColor: '#ef4444',
+        wickUpColor: '#10b981',
+      });
+
+      seriesRef.current = candlestickSeries;
+
+      // Transform data for chart
+      const chartData = data.map((d) => ({
+        time: Math.floor(d.timestamp / 1000) as number,
+        open: d.open,
+        high: d.high,
+        low: d.low,
+        close: d.close,
+      }));
+
+      candlestickSeries.setData(chartData);
+
+      // Fit content
+      chart.timeScale().fitContent();
+
+      // Handle resize
+      const handleResize = () => {
+        if (chartContainerRef.current && chartRef.current) {
+          chartRef.current.applyOptions({
+            width: chartContainerRef.current.clientWidth,
+          });
+        }
+      };
+
+      window.addEventListener('resize', handleResize);
+
+      return () => {
+        window.removeEventListener('resize', handleResize);
+      };
+    });
+
+    return () => {
+      if (chartRef.current) {
+        chartRef.current.remove();
+        chartRef.current = null;
+      }
+    };
+  }, [data, isClient]);
+
+  if (!isClient) {
+    return (
+      <div className="w-full h-96 flex items-center justify-center rounded-md bg-gray-800">
+        <p className="text-sm text-gray-400">Loading chart...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full">
+      <div ref={chartContainerRef} className="w-full" />
+    </div>
+  );
+}
