@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { formatCurrency } from '@/lib/utils';
 
 interface EMACardProps {
@@ -12,7 +13,7 @@ interface EMACardProps {
   currentPrice: number;
 }
 
-export function EMACard({ ema, currentPrice }: EMACardProps) {
+function EMACardComponent({ ema, currentPrice }: EMACardProps) {
   const getTrend = () => {
     if (ema.ema9 > ema.ema21 && ema.ema21 > ema.ema50 && ema.ema50 > ema.ema200) {
       return { text: 'Strong Uptrend', color: 'text-green-500' };
@@ -66,3 +67,5 @@ export function EMACard({ ema, currentPrice }: EMACardProps) {
     </div>
   );
 }
+
+export const EMACard = memo(EMACardComponent);

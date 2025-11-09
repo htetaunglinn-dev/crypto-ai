@@ -19,8 +19,9 @@ export function CandlestickChart({ data, symbol }: CandlestickChartProps) {
     setIsClient(true);
   }, []);
 
+  // Initialize chart (only on symbol change or first load)
   useEffect(() => {
-    if (!isClient || !chartContainerRef.current || data.length === 0) return;
+    if (!isClient || !chartContainerRef.current) return;
 
     // Dynamic import to avoid SSR issues
     import('lightweight-charts').then(({ createChart, ColorType, CandlestickSeries }) => {
@@ -30,6 +31,7 @@ export function CandlestickChart({ data, symbol }: CandlestickChartProps) {
       if (chartRef.current) {
         chartRef.current.remove();
         chartRef.current = null;
+        seriesRef.current = null;
       }
 
       // Create chart
@@ -68,20 +70,6 @@ export function CandlestickChart({ data, symbol }: CandlestickChartProps) {
 
       seriesRef.current = candlestickSeries;
 
-      // Transform data for chart
-      const chartData = data.map((d) => ({
-        time: Math.floor(d.timestamp / 1000) as number,
-        open: d.open,
-        high: d.high,
-        low: d.low,
-        close: d.close,
-      }));
-
-      candlestickSeries.setData(chartData);
-
-      // Fit content
-      chart.timeScale().fitContent();
-
       // Handle resize
       const handleResize = () => {
         if (chartContainerRef.current && chartRef.current) {
@@ -95,16 +83,37 @@ export function CandlestickChart({ data, symbol }: CandlestickChartProps) {
 
       return () => {
         window.removeEventListener('resize', handleResize);
+        if (chartRef.current) {
+          chartRef.current.remove();
+          chartRef.current = null;
+          seriesRef.current = null;
+        }
       };
     });
+  }, [isClient, symbol]);
 
-    return () => {
-      if (chartRef.current) {
-        chartRef.current.remove();
-        chartRef.current = null;
-      }
-    };
-  }, [data, isClient]);
+  // Update chart data (for live updates)
+  useEffect(() => {
+    if (!seriesRef.current || data.length === 0) return;
+
+    // Transform data for chart
+    const chartData = data.map((d) => ({
+      time: Math.floor(d.timestamp / 1000),
+      open: d.open,
+      high: d.high,
+      low: d.low,
+      close: d.close,
+    }));
+
+    // Update chart data
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    seriesRef.current.setData(chartData as any);
+
+    // Fit content on initial load
+    if (chartRef.current) {
+      chartRef.current.timeScale().fitContent();
+    }
+  }, [data]);
 
   if (!isClient) {
     return (

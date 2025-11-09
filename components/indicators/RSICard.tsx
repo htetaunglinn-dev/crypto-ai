@@ -1,12 +1,13 @@
 'use client';
 
+import { memo } from 'react';
 import type { RSIData } from '@/types';
 
 interface RSICardProps {
   data: RSIData;
 }
 
-export function RSICard({ data }: RSICardProps) {
+function RSICardComponent({ data }: RSICardProps) {
   const getColor = () => {
     if (data.value > 70) return 'text-red-500';
     if (data.value < 30) return 'text-green-500';
@@ -51,3 +52,5 @@ export function RSICard({ data }: RSICardProps) {
     </div>
   );
 }
+
+export const RSICard = memo(RSICardComponent);

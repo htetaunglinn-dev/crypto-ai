@@ -3,80 +3,60 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-import type { CryptoPrice, AllIndicators, ClaudeAnalysis, TradingPair, HistoricalData } from '@/types';
+import type { CryptoPrice, AllIndicators, ClaudeAnalysis, TradingPair, HistoricalData, OHLCV } from '@/types';
 import { Header } from '@/components/Header';
 import { PriceCard } from '@/components/PriceCard';
 import { RSICard, MACDCard, BollingerBandsCard, EMACard } from '@/components/indicators';
 import { ClaudeInsightsPanel } from '@/components/ai';
 import { CandlestickChart } from '@/components/charts';
+import { useBinanceTickerStream } from '@/hooks/useBinanceTickerStream';
+import { useBinanceKlineStream } from '@/hooks/useBinanceKlineStream';
 
 const TRADING_PAIRS: TradingPair[] = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT'];
 
 export default function Home() {
   const { data: session, status } = useSession();
   const [selectedSymbol, setSelectedSymbol] = useState<TradingPair>('BTCUSDT');
-  const [prices, setPrices] = useState<CryptoPrice[]>([]);
-  const [historicalData, setHistoricalData] = useState<HistoricalData | null>(null);
-  const [indicators, setIndicators] = useState<AllIndicators | null>(null);
+  const [initialHistoricalData, setInitialHistoricalData] = useState<OHLCV[]>([]);
   const [analysis, setAnalysis] = useState<ClaudeAnalysis | null>(null);
-  const [isLoadingPrices, setIsLoadingPrices] = useState(true);
   const [isLoadingChart, setIsLoadingChart] = useState(false);
-  const [isLoadingIndicators, setIsLoadingIndicators] = useState(false);
   const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
 
-  const fetchPrices = useCallback(async () => {
-    try {
-      setIsLoadingPrices(true);
-      const response = await fetch(`/api/crypto/price?symbols=${TRADING_PAIRS.join(',')}`);
-      const data = await response.json();
+  // WebSocket hooks for real-time data
+  const {
+    prices,
+    isConnected: isPricesConnected,
+    error: pricesError,
+    reconnect: reconnectPrices,
+  } = useBinanceTickerStream(TRADING_PAIRS);
 
-      if (data.success) {
-        setPrices(data.data);
-      } else {
-        setError(data.error || 'Failed to fetch prices');
-      }
-    } catch (err) {
-      console.error('Error fetching prices:', err);
-      setError('Failed to fetch prices');
-    } finally {
-      setIsLoadingPrices(false);
-    }
-  }, []);
+  const {
+    ohlcvData,
+    indicators,
+    isConnected: isChartConnected,
+    error: chartError,
+    reconnect: reconnectChart,
+  } = useBinanceKlineStream(selectedSymbol, '1h', initialHistoricalData);
 
+  // Fetch initial historical data via REST API
   const fetchHistoricalData = useCallback(async (symbol: TradingPair) => {
     try {
       setIsLoadingChart(true);
-      const response = await fetch(`/api/crypto/historical?symbol=${symbol}&interval=1h&limit=100`);
+      const response = await fetch(`/api/crypto/historical?symbol=${symbol}&interval=1h&limit=200`);
       const data = await response.json();
 
       if (data.success) {
-        setHistoricalData(data.data);
+        setInitialHistoricalData(data.data.data);
+      } else {
+        setError(data.error || 'Failed to fetch historical data');
       }
     } catch (err) {
       console.error('Error fetching historical data:', err);
+      setError('Failed to fetch historical data');
     } finally {
       setIsLoadingChart(false);
-    }
-  }, []);
-
-  const fetchIndicators = useCallback(async (symbol: TradingPair) => {
-    try {
-      setIsLoadingIndicators(true);
-      const response = await fetch(`/api/indicators/calculate?symbol=${symbol}&interval=1h`);
-      const data = await response.json();
-
-      if (data.success) {
-        setIndicators(data.data);
-      } else {
-        setError(data.error || 'Failed to fetch indicators');
-      }
-    } catch (err) {
-      console.error('Error fetching indicators:', err);
-      setError('Failed to fetch indicators');
-    } finally {
-      setIsLoadingIndicators(false);
     }
   }, []);
 
@@ -109,21 +89,26 @@ export default function Home() {
     }
   }, [status]);
 
-  useEffect(() => {
-    fetchPrices();
-    const interval = setInterval(fetchPrices, 30000);
-    return () => clearInterval(interval);
-  }, [fetchPrices]);
-
+  // Fetch initial historical data and analysis when symbol changes
   useEffect(() => {
     if (selectedSymbol) {
       fetchHistoricalData(selectedSymbol);
-      fetchIndicators(selectedSymbol);
       if (status === 'authenticated') {
         fetchAnalysis(selectedSymbol);
       }
     }
-  }, [selectedSymbol, fetchHistoricalData, fetchIndicators, fetchAnalysis, status]);
+  }, [selectedSymbol, fetchHistoricalData, fetchAnalysis, status]);
+
+  // Update error state when WebSocket errors occur
+  useEffect(() => {
+    if (pricesError) {
+      setError(`Price connection error: ${pricesError.message}`);
+    } else if (chartError) {
+      setError(`Chart connection error: ${chartError.message}`);
+    } else {
+      setError(null);
+    }
+  }, [pricesError, chartError]);
 
   const currentPrice = prices.find((p) => p.symbol === selectedSymbol);
 
@@ -136,6 +121,17 @@ export default function Home() {
           {error && (
             <div className="mb-4 rounded-lg border border-red-500/50 bg-red-500/10 p-4">
               <p className="text-sm text-red-500">{error}</p>
+              {(pricesError || chartError) && (
+                <button
+                  onClick={() => {
+                    if (pricesError) reconnectPrices();
+                    if (chartError) reconnectChart();
+                  }}
+                  className="mt-2 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
+                >
+                  Reconnect
+                </button>
+              )}
             </div>
           )}
 
@@ -143,8 +139,16 @@ export default function Home() {
             {/* Watchlist Sidebar */}
             <div className="lg:col-span-2">
               <div className="space-y-2">
-                <h2 className="mb-3 text-sm font-semibold text-gray-400">Watchlist</h2>
-                {isLoadingPrices ? (
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="text-sm font-semibold text-gray-400">Watchlist</h2>
+                  {isPricesConnected && (
+                    <div className="flex items-center gap-1">
+                      <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                      <span className="text-xs text-green-500">Live</span>
+                    </div>
+                  )}
+                </div>
+                {prices.length === 0 ? (
                   <div className="space-y-2">
                     {[...Array(5)].map((_, i) => (
                       <div
@@ -198,8 +202,8 @@ export default function Home() {
 
                   {isLoadingChart ? (
                     <div className="h-96 animate-pulse rounded-md bg-gray-800" />
-                  ) : historicalData && historicalData.data.length > 0 ? (
-                    <CandlestickChart data={historicalData.data} symbol={selectedSymbol} />
+                  ) : ohlcvData && ohlcvData.length > 0 ? (
+                    <CandlestickChart data={ohlcvData} symbol={selectedSymbol} />
                   ) : (
                     <div className="h-96 flex items-center justify-center rounded-md bg-gray-800">
                       <p className="text-sm text-gray-400">No chart data available</p>
@@ -209,7 +213,7 @@ export default function Home() {
 
                 {/* Technical Indicators */}
                 <div className="grid grid-cols-2 gap-4">
-                  {isLoadingIndicators ? (
+                  {!indicators ? (
                     <>
                       {[...Array(4)].map((_, i) => (
                         <div
@@ -219,20 +223,18 @@ export default function Home() {
                       ))}
                     </>
                   ) : (
-                    indicators && (
-                      <>
-                        <RSICard data={indicators.rsi} />
-                        <MACDCard data={indicators.macd} />
-                        <BollingerBandsCard
-                          data={indicators.bollingerBands}
-                          currentPrice={currentPrice?.price || 0}
-                        />
-                        <EMACard
-                          ema={indicators.ema}
-                          currentPrice={currentPrice?.price || 0}
-                        />
-                      </>
-                    )
+                    <>
+                      <RSICard data={indicators.rsi} />
+                      <MACDCard data={indicators.macd} />
+                      <BollingerBandsCard
+                        data={indicators.bollingerBands}
+                        currentPrice={currentPrice?.price || 0}
+                      />
+                      <EMACard
+                        ema={indicators.ema}
+                        currentPrice={currentPrice?.price || 0}
+                      />
+                    </>
                   )}
                 </div>
               </div>

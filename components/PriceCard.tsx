@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import type { CryptoPrice } from '@/types';
 import { formatCurrency, formatPercentage, formatLargeNumber, getChangeColor } from '@/lib/utils';
 
@@ -9,7 +10,7 @@ interface PriceCardProps {
   onClick: () => void;
 }
 
-export function PriceCard({ price, isSelected, onClick }: PriceCardProps) {
+function PriceCardComponent({ price, isSelected, onClick }: PriceCardProps) {
   const isPositive = price.changePercent24h >= 0;
 
   return (
@@ -45,3 +46,6 @@ export function PriceCard({ price, isSelected, onClick }: PriceCardProps) {
     </button>
   );
 }
+
+// Memoize to optimize re-renders for real-time price updates
+export const PriceCard = memo(PriceCardComponent);

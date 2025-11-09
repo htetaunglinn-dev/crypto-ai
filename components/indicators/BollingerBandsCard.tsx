@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import type { BollingerBandsData } from '@/types';
 import { formatCurrency } from '@/lib/utils';
 
@@ -8,7 +9,7 @@ interface BollingerBandsCardProps {
   currentPrice: number;
 }
 
-export function BollingerBandsCard({ data, currentPrice }: BollingerBandsCardProps) {
+function BollingerBandsCardComponent({ data, currentPrice }: BollingerBandsCardProps) {
   const isSqueeze = data.bandwidth < 2;
   const position = data.percentB > 1 ? 'Above' : data.percentB < 0 ? 'Below' : 'Within';
 
@@ -62,3 +63,5 @@ export function BollingerBandsCard({ data, currentPrice }: BollingerBandsCardPro
     </div>
   );
 }
+
+export const BollingerBandsCard = memo(BollingerBandsCardComponent);

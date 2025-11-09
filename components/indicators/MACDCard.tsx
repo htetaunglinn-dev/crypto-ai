@@ -1,12 +1,13 @@
 'use client';
 
+import { memo } from 'react';
 import type { MACDData } from '@/types';
 
 interface MACDCardProps {
   data: MACDData;
 }
 
-export function MACDCard({ data }: MACDCardProps) {
+function MACDCardComponent({ data }: MACDCardProps) {
   const isBullish = data.histogram > 0;
 
   return (
@@ -50,3 +51,5 @@ export function MACDCard({ data }: MACDCardProps) {
     </div>
   );
 }
+
+export const MACDCard = memo(MACDCardComponent);
