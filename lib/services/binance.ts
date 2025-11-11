@@ -3,6 +3,13 @@ import type { OHLCV, CryptoPrice, HistoricalData, TradingPair, TimeInterval } fr
 
 const BINANCE_API_BASE = 'https://api.binance.com/api/v3';
 
+export interface BinanceSymbolInfo {
+  symbol: string;
+  baseAsset: string;
+  quoteAsset: string;
+  status: string;
+}
+
 export class BinanceService {
   private baseURL: string;
 
@@ -87,6 +94,27 @@ export class BinanceService {
     } catch (error) {
       console.error('Error fetching multiple prices:', error);
       throw new Error('Failed to fetch multiple prices');
+    }
+  }
+
+  /**
+   * Get all available trading pairs from Binance
+   */
+  async getAvailablePairs(): Promise<BinanceSymbolInfo[]> {
+    try {
+      const response = await axios.get(`${this.baseURL}/exchangeInfo`);
+      const symbols: BinanceSymbolInfo[] = response.data.symbols
+        .filter((symbol: { status: string }) => symbol.status === 'TRADING')
+        .map((symbol: { symbol: string; baseAsset: string; quoteAsset: string; status: string }) => ({
+          symbol: symbol.symbol,
+          baseAsset: symbol.baseAsset,
+          quoteAsset: symbol.quoteAsset,
+          status: symbol.status,
+        }));
+      return symbols;
+    } catch (error) {
+      console.error('Error fetching available pairs:', error);
+      throw new Error('Failed to fetch available trading pairs');
     }
   }
 
