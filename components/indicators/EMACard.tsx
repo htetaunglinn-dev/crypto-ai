@@ -16,52 +16,60 @@ interface EMACardProps {
 function EMACardComponent({ ema, currentPrice }: EMACardProps) {
   const getTrend = () => {
     if (ema.ema9 > ema.ema21 && ema.ema21 > ema.ema50 && ema.ema50 > ema.ema200) {
-      return { text: 'Strong Uptrend', color: 'text-green-500' };
+      return { text: 'Strong Uptrend', color: 'text-green-500', bg: 'bg-green-500/20' };
     }
     if (ema.ema9 < ema.ema21 && ema.ema21 < ema.ema50 && ema.ema50 < ema.ema200) {
-      return { text: 'Strong Downtrend', color: 'text-red-500' };
+      return { text: 'Strong Downtrend', color: 'text-red-500', bg: 'bg-red-500/20' };
     }
-    return { text: 'Mixed Signals', color: 'text-yellow-500' };
+    return { text: 'Mixed Signals', color: 'text-yellow-500', bg: 'bg-yellow-500/20' };
   };
 
   const trend = getTrend();
   const above200 = currentPrice > ema.ema200;
 
+  const getBackgroundGradient = () => {
+    if (trend.text === 'Strong Uptrend') return 'from-green-500/10 to-transparent';
+    if (trend.text === 'Strong Downtrend') return 'from-red-500/10 to-transparent';
+    return 'from-yellow-500/10 to-transparent';
+  };
+
   return (
-    <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-300">EMA Indicators</h3>
-        <span className={`text-xs font-medium ${trend.color}`}>{trend.text}</span>
+    <div className={`rounded-lg border border-gray-800 bg-gradient-to-br ${getBackgroundGradient()} bg-gray-900 p-6 shadow-lg`}>
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-lg font-bold text-white">EMA Indicators</h3>
+        <span className={`rounded-full px-3 py-1 text-sm font-semibold ${trend.color} ${trend.bg}`}>
+          {trend.text}
+        </span>
       </div>
 
-      <div className="space-y-2">
+      <div className="mb-4 space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-400">EMA 9</span>
-          <span className="text-sm font-semibold text-white">{formatCurrency(ema.ema9)}</span>
+          <span className="text-sm font-medium text-gray-400">EMA 9</span>
+          <span className="text-lg font-bold text-amber-400">{formatCurrency(ema.ema9)}</span>
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-400">EMA 21</span>
-          <span className="text-sm font-semibold text-white">{formatCurrency(ema.ema21)}</span>
+          <span className="text-sm font-medium text-gray-400">EMA 21</span>
+          <span className="text-lg font-bold text-purple-400">{formatCurrency(ema.ema21)}</span>
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-400">EMA 50</span>
-          <span className="text-sm font-semibold text-white">{formatCurrency(ema.ema50)}</span>
+          <span className="text-sm font-medium text-gray-400">EMA 50</span>
+          <span className="text-lg font-bold text-pink-400">{formatCurrency(ema.ema50)}</span>
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-400">EMA 200</span>
-          <span className="text-sm font-semibold text-white">{formatCurrency(ema.ema200)}</span>
+          <span className="text-sm font-medium text-gray-400">EMA 200</span>
+          <span className="text-lg font-bold text-cyan-400">{formatCurrency(ema.ema200)}</span>
         </div>
+      </div>
 
-        <div className="mt-3 border-t border-gray-800 pt-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-400">Price vs EMA200</span>
-            <span className={`text-xs font-semibold ${above200 ? 'text-green-500' : 'text-red-500'}`}>
-              {above200 ? 'Above (Bullish)' : 'Below (Bearish)'}
-            </span>
-          </div>
+      <div className="border-t border-gray-800 pt-4">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-gray-400">Price vs EMA200</span>
+          <span className={`rounded-full px-3 py-1 text-sm font-bold ${above200 ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
+            {above200 ? 'Above (Bullish)' : 'Below (Bearish)'}
+          </span>
         </div>
       </div>
     </div>
