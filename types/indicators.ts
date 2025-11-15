@@ -52,3 +52,39 @@ export interface IndicatorCalculationInput {
   interval: string;
   period?: number;
 }
+
+export interface RSIHistoryPoint {
+  time: number;
+  value: number;
+  signal: 'overbought' | 'oversold' | 'neutral';
+}
+
+export interface MACDHistoryPoint {
+  time: number;
+  macd: number;
+  signal: number;
+  histogram: number;
+}
+
+export interface BollingerBandsHistoryPoint {
+  time: number;
+  upper: number;
+  middle: number;
+  lower: number;
+  price: number;
+}
+
+export interface EMAHistoryPoint {
+  time: number;
+  ema9: number;
+  ema21: number;
+  ema50: number;
+  ema200: number;
+}
+
+export interface IndicatorHistory {
+  rsiHistory: RSIHistoryPoint[];
+  macdHistory: MACDHistoryPoint[];
+  bbHistory: BollingerBandsHistoryPoint[];
+  emaHistory: EMAHistoryPoint[];
+}

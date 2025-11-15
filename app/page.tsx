@@ -11,6 +11,7 @@ import { ClaudeInsightsPanel } from '@/components/ai';
 import { CandlestickChart } from '@/components/charts';
 import { useBinanceTickerStream } from '@/hooks/useBinanceTickerStream';
 import { useBinanceKlineStream } from '@/hooks/useBinanceKlineStream';
+import { useIndicatorHistory } from '@/hooks/useIndicatorHistory';
 
 const TRADING_PAIRS: TradingPair[] = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT'];
 
@@ -39,6 +40,8 @@ export default function Home() {
     error: chartError,
     reconnect: reconnectChart,
   } = useBinanceKlineStream(selectedSymbol, '1d', initialHistoricalData);
+
+  const indicatorHistory = useIndicatorHistory(ohlcvData || [], indicators);
 
   // Fetch initial historical data via REST API
   const fetchHistoricalData = useCallback(async (symbol: TradingPair) => {
@@ -224,11 +227,18 @@ export default function Home() {
                     </>
                   ) : (
                     <>
-                      <RSICard data={indicators.rsi} />
-                      <MACDCard data={indicators.macd} />
+                      <RSICard
+                        data={indicators.rsi}
+                        history={indicatorHistory.rsiHistory}
+                      />
+                      <MACDCard
+                        data={indicators.macd}
+                        history={indicatorHistory.macdHistory}
+                      />
                       <BollingerBandsCard
                         data={indicators.bollingerBands}
                         currentPrice={currentPrice?.price || 0}
+                        history={indicatorHistory.bbHistory}
                       />
                       <EMACard
                         ema={indicators.ema}

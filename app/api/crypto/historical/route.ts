@@ -23,38 +23,52 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Try to get from cache first
-    await connectToDatabase();
-    const cached = await CryptoPrice.findOne({ symbol, interval });
-
     const now = Date.now();
-    const cacheAge = cached ? now - cached.updatedAt.getTime() : Infinity;
+    let cached = null;
 
-    // Return cached data if fresh enough
-    if (cached && cacheAge < CACHE_DURATION * 1000) {
-      const data: HistoricalData = {
-        symbol: cached.symbol,
-        interval: cached.interval,
-        data: cached.data,
-      };
+    // Try to get from cache first (only if MongoDB is configured)
+    if (process.env.MONGODB_URI) {
+      try {
+        await connectToDatabase();
+        cached = await CryptoPrice.findOne({ symbol, interval });
 
-      return NextResponse.json<ApiResponse<HistoricalData>>({
-        success: true,
-        data,
-        cached: true,
-        timestamp: now,
-      });
+        const cacheAge = cached ? now - cached.updatedAt.getTime() : Infinity;
+
+        // Return cached data if fresh enough
+        if (cached && cacheAge < CACHE_DURATION * 1000) {
+          const data: HistoricalData = {
+            symbol: cached.symbol,
+            interval: cached.interval,
+            data: cached.data,
+          };
+
+          return NextResponse.json<ApiResponse<HistoricalData>>({
+            success: true,
+            data,
+            cached: true,
+            timestamp: now,
+          });
+        }
+      } catch (dbError) {
+        console.warn('MongoDB cache unavailable, fetching directly from Binance');
+      }
     }
 
     // Fetch fresh data from Binance
     const data = await binanceService.getHistoricalData(symbol, interval, limit);
 
-    // Update cache
-    await CryptoPrice.findOneAndUpdate(
-      { symbol, interval },
-      { symbol, interval, data: data.data },
-      { upsert: true, new: true }
-    );
+    // Update cache (only if MongoDB is configured)
+    if (process.env.MONGODB_URI) {
+      try {
+        await CryptoPrice.findOneAndUpdate(
+          { symbol, interval },
+          { symbol, interval, data: data.data },
+          { upsert: true, new: true }
+        );
+      } catch (dbError) {
+        console.warn('Failed to update cache, continuing without cache');
+      }
+    }
 
     return NextResponse.json<ApiResponse<HistoricalData>>({
       success: true,
