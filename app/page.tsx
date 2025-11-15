@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, startTransition } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import axios from 'axios';
@@ -83,41 +83,49 @@ export default function Home() {
       return;
     }
 
-    try {
+    startTransition(() => {
       setAnalysisError(null);
       setIsLoadingAnalysis(true);
+    });
 
+    try {
       const { data } = await axios.post('/api/analysis/generate', {
         symbol,
         interval: '1d',
         forceRefresh,
       });
 
-      if (data.success) {
-        setAnalysis(data.data);
-      } else {
-        setAnalysisError(data.error || 'Failed to fetch analysis');
-      }
+      startTransition(() => {
+        if (data.success) {
+          setAnalysis(data.data);
+        } else {
+          setAnalysisError(data.error || 'Failed to fetch analysis');
+        }
+        setIsLoadingAnalysis(false);
+      });
     } catch (err) {
-      console.error('Error fetching analysis:', err);
-
-      if (axios.isAxiosError(err)) {
-        const errorMessage = err.response?.data?.error || err.message || 'Failed to fetch analysis';
-        setAnalysisError(errorMessage);
-      } else {
-        setAnalysisError('Failed to fetch analysis');
-      }
-    } finally {
-      setIsLoadingAnalysis(false);
+      startTransition(() => {
+        if (axios.isAxiosError(err)) {
+          const errorMessage = err.response?.data?.error || err.message || 'Failed to fetch analysis';
+          setAnalysisError(errorMessage);
+        } else {
+          setAnalysisError('Failed to fetch analysis');
+        }
+        setIsLoadingAnalysis(false);
+      });
     }
   }, [status]);
 
-  // Fetch initial historical data and analysis when symbol changes
   useEffect(() => {
     if (selectedSymbol) {
       fetchHistoricalData(selectedSymbol);
+
       if (status === 'authenticated') {
-        fetchAnalysis(selectedSymbol);
+        const timer = setTimeout(() => {
+          fetchAnalysis(selectedSymbol);
+        }, 100);
+
+        return () => clearTimeout(timer);
       }
     }
   }, [selectedSymbol, fetchHistoricalData, fetchAnalysis, status]);
