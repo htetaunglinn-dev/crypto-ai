@@ -43,9 +43,19 @@ export async function POST(request: NextRequest) {
 
     // Get user's API key and provider
     await connectToDatabase();
-    const user = await User.findById(session.user.id).select('+anthropicApiKey aiProvider');
+    const user = await User.findById(session.user.id).select('+anthropicApiKey');
 
-    if (!user || !user.anthropicApiKey) {
+    if (!user) {
+      return NextResponse.json<ApiResponse<null>>(
+        {
+          success: false,
+          error: 'User not found. Please sign in again.',
+        },
+        { status: 404 }
+      );
+    }
+
+    if (!user.anthropicApiKey) {
       return NextResponse.json<ApiResponse<null>>(
         {
           success: false,
@@ -81,6 +91,7 @@ export async function POST(request: NextRequest) {
           stopLoss: cached.stopLoss,
           timeframe: cached.timeframe,
           expiresAt: cached.expiresAt.getTime(),
+          aiProvider: (cached.aiProvider || 'claude') as 'claude' | 'gemini',
         };
 
         return NextResponse.json<ApiResponse<ClaudeAnalysis>>({
@@ -121,6 +132,8 @@ export async function POST(request: NextRequest) {
       analysis = await claudeService.generateAnalysis(price, indicators, interval);
     }
 
+    analysis.aiProvider = aiProvider as 'claude' | 'gemini';
+
     // Save to database
     await Analysis.create({
       ...analysis,
@@ -135,11 +148,19 @@ export async function POST(request: NextRequest) {
       timestamp: Date.now(),
     });
   } catch (error) {
-    console.error('Error in /api/analysis/generate:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to generate analysis';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+
+    console.error('Error in /api/analysis/generate:', {
+      message: errorMessage,
+      stack: errorStack,
+      error,
+    });
+
     return NextResponse.json<ApiResponse<null>>(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to generate analysis',
+        error: errorMessage,
       },
       { status: 500 }
     );

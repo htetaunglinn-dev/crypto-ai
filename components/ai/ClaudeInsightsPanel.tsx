@@ -33,7 +33,7 @@ export function ClaudeInsightsPanel({
         <div className="text-center">
           <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-700 border-t-blue-500 mx-auto" />
           <p className="text-sm text-gray-400">
-            Claude AI is analyzing the market...
+            AI is analyzing the market...
           </p>
         </div>
       </div>
@@ -75,7 +75,9 @@ export function ClaudeInsightsPanel({
     <div className="flex h-full flex-col space-y-4">
       <div className="flex items-center justify-between rounded-lg border border-gray-800 bg-gray-900 p-4">
         <div>
-          <h2 className="text-lg font-bold text-white">Claude AI Insights</h2>
+          <h2 className="text-lg font-bold text-white">
+            {analysis.aiProvider === 'gemini' ? 'Gemini' : 'Claude'} AI Insights
+          </h2>
           <p className="text-xs text-gray-400">
             Updated {formatRelativeTime(analysis.timestamp)}
           </p>

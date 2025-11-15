@@ -58,6 +58,7 @@ const AnalysisSchema = new Schema<IAnalysis>(
     stopLoss: { type: Number },
     timeframe: { type: String, required: true },
     expiresAt: { type: Date, required: true },
+    aiProvider: { type: String, enum: ['claude', 'gemini'], default: 'claude' },
   },
   {
     timestamps: true,

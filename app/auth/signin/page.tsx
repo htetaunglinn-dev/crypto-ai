@@ -99,7 +99,7 @@ export default function SignInPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full rounded-md bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full rounded-md bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
@@ -115,7 +115,7 @@ export default function SignInPage() {
             <button
               onClick={() => handleOAuthSignIn('google')}
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-3 rounded-md border border-gray-700 bg-gray-800 px-4 py-2 font-medium text-white transition hover:bg-gray-750 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-3 rounded-md border border-gray-700 bg-gray-800 px-4 py-2 font-medium text-white transition hover:bg-gray-750 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               <svg className="h-5 w-5" viewBox="0 0 24 24">
                 <path
@@ -141,7 +141,7 @@ export default function SignInPage() {
             <button
               onClick={() => handleOAuthSignIn('github')}
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-3 rounded-md border border-gray-700 bg-gray-800 px-4 py-2 font-medium text-white transition hover:bg-gray-750 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-3 rounded-md border border-gray-700 bg-gray-800 px-4 py-2 font-medium text-white transition hover:bg-gray-750 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
                 <path
@@ -159,7 +159,7 @@ export default function SignInPage() {
               Don&apos;t have an account?{' '}
               <Link
                 href="/auth/signup"
-                className="font-medium text-blue-500 hover:text-blue-400"
+                className="font-medium text-blue-500 hover:text-blue-400 cursor-pointer"
               >
                 Sign up
               </Link>
@@ -170,7 +170,7 @@ export default function SignInPage() {
         <div className="mt-4 text-center">
           <Link
             href="/"
-            className="text-sm text-gray-500 hover:text-gray-400"
+            className="text-sm text-gray-500 hover:text-gray-400 cursor-pointer"
           >
             ← Back to home
           </Link>

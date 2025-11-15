@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
+import axios from 'axios';
 import type { CryptoPrice, AllIndicators, ClaudeAnalysis, TradingPair, HistoricalData, OHLCV } from '@/types';
 import type { FearGreedData, FearGreedHistoryPoint, FearGreedResponse } from '@/types/fear-greed';
 import { Header } from '@/components/Header';
@@ -85,12 +86,12 @@ export default function Home() {
     try {
       setAnalysisError(null);
       setIsLoadingAnalysis(true);
-      const response = await fetch('/api/analysis/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol, interval: '1d', forceRefresh }),
+
+      const { data } = await axios.post('/api/analysis/generate', {
+        symbol,
+        interval: '1d',
+        forceRefresh,
       });
-      const data = await response.json();
 
       if (data.success) {
         setAnalysis(data.data);
@@ -99,7 +100,13 @@ export default function Home() {
       }
     } catch (err) {
       console.error('Error fetching analysis:', err);
-      setAnalysisError('Failed to fetch analysis');
+
+      if (axios.isAxiosError(err)) {
+        const errorMessage = err.response?.data?.error || err.message || 'Failed to fetch analysis';
+        setAnalysisError(errorMessage);
+      } else {
+        setAnalysisError('Failed to fetch analysis');
+      }
     } finally {
       setIsLoadingAnalysis(false);
     }
@@ -331,7 +338,7 @@ export default function Home() {
                     Sign in to unlock AI features
                   </p>
                   <p className="text-xs text-gray-400 mb-3">
-                    Get Claude AI-powered market analysis, pattern recognition, and risk assessment.
+                    Get AI-powered market analysis, pattern recognition, and risk assessment.
                   </p>
                   <Link
                     href="/auth/signin"
@@ -378,7 +385,7 @@ export default function Home() {
       <footer className="border-t border-gray-800 bg-black py-4">
         <div className="mx-auto max-w-7xl px-4 text-center">
           <p className="text-xs text-gray-500">
-            Data provided by Binance API • AI Analysis by Claude • Built with Next.js
+            Data provided by Binance API • AI Analysis by {analysis?.aiProvider === 'gemini' ? 'Gemini' : 'Claude'} • Built with Next.js
           </p>
         </div>
       </footer>

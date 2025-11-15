@@ -13,7 +13,7 @@
     "@anthropic-ai/sdk": "^0.68.0",
     "@auth/mongodb-adapter": "^3.11.1",
     "@google/generative-ai": "^0.21.0",
-    "axios": "^1.13.1",
+    "axios": "^1.13.2",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",

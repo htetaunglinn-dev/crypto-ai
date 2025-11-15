@@ -47,6 +47,7 @@ export interface ClaudeAnalysis {
   stopLoss?: number;
   timeframe: string;
   expiresAt: number;
+  aiProvider?: AIProvider;
 }
 
 export type AIAnalysis = ClaudeAnalysis;
