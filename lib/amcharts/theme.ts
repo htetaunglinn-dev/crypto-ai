@@ -24,13 +24,16 @@ export function createDarkTheme(root: am5.Root): am5.Theme {
     fontFamily: "ui-monospace, monospace",
   });
 
-  theme.rule("Tooltip").setAll({
+  theme.rule("Rectangle", ["tooltip", "background"]).setAll({
     fill: am5.color(0x1f2937),
     stroke: am5.color(0x374151),
     strokeWidth: 1,
+  });
+
+  theme.rule("Label", ["tooltip"]).setAll({
+    fill: am5.color(0xe5e7eb),
     fontFamily: "ui-monospace, monospace",
     fontSize: 12,
-    labelText: "{valueY}",
   });
 
   theme.rule("Label").setAll({

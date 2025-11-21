@@ -1,5 +1,6 @@
 import * as am5 from "@amcharts/amcharts5";
 import * as am5xy from "@amcharts/amcharts5/xy";
+import am5themes_Dark from "@amcharts/amcharts5/themes/Dark";
 import { createDarkTheme } from "./theme";
 
 export function createChartRoot(container: HTMLElement): am5.Root {

@@ -4,8 +4,8 @@ import { createChartRoot } from "@/lib/amcharts/chartUtils";
 
 export function useAMChart<T = am5.Root>(
   setupFn: (root: am5.Root) => T
-): [React.RefObject<HTMLDivElement>, am5.Root | null, T | null] {
-  const chartRef = useRef<HTMLDivElement>(null);
+): [React.RefObject<HTMLDivElement | null>, React.RefObject<am5.Root | null>, React.RefObject<T | null>] {
+  const chartRef = useRef<HTMLDivElement | null>(null);
   const rootRef = useRef<am5.Root | null>(null);
   const chartInstanceRef = useRef<T | null>(null);
 
@@ -23,7 +23,7 @@ export function useAMChart<T = am5.Root>(
       rootRef.current = null;
       chartInstanceRef.current = null;
     };
-  }, []);
+  }, [setupFn]);
 
-  return [chartRef, rootRef.current, chartInstanceRef.current];
+  return [chartRef, rootRef, chartInstanceRef];
 }
