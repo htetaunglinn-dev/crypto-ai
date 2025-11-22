@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { binanceService } from '@/lib/services';
+import { coinGeckoService } from '@/lib/services';
 import type { ApiResponse, CryptoPrice, TradingPair } from '@/types';
 
 export async function GET(request: NextRequest) {
@@ -23,10 +23,10 @@ export async function GET(request: NextRequest) {
     if (multiple) {
       // Fetch multiple symbols
       const symbols = multiple.split(',') as TradingPair[];
-      data = await binanceService.getMultiplePrices(symbols);
+      data = await Promise.all(symbols.map(s => coinGeckoService.getCurrentPrice(s)));
     } else {
       // Fetch single symbol
-      data = await binanceService.getCurrentPrice(symbol);
+      data = await coinGeckoService.getCurrentPrice(symbol);
     }
 
     return NextResponse.json<ApiResponse<typeof data>>({

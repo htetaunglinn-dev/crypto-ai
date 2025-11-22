@@ -53,7 +53,7 @@ export function useBinanceKlineStream(
     setOhlcvData(initialData);
 
     // Calculate initial indicators if we have enough data
-    if (initialData.length >= 200) {
+    if (initialData.length >= 50) {
       console.log('[KlineStream] Calculating initial indicators for', symbol);
       const newIndicators = IndicatorCalculator.calculateAll(symbol, initialData);
       if (newIndicators) {
@@ -63,7 +63,7 @@ export function useBinanceKlineStream(
         console.warn('[KlineStream] Failed to calculate initial indicators');
       }
     } else {
-      console.warn('[KlineStream] Not enough data for indicators:', initialData.length, 'need 200');
+      console.warn('[KlineStream] Not enough data for indicators:', initialData.length, 'need 50');
       setIndicators(null);
     }
   }, [initialData, symbol]);
@@ -127,7 +127,7 @@ export function useBinanceKlineStream(
             }
 
             // Recalculate indicators on completed candle
-            if (updated.length >= 200) {
+            if (updated.length >= 50) {
               const newIndicators = IndicatorCalculator.calculateAll(symbol, updated);
               setIndicators(newIndicators);
             }

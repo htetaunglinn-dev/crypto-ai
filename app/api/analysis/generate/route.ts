@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { binanceService } from '@/lib/services';
+import { coinGeckoService } from '@/lib/services';
 import { IndicatorCalculator } from '@/lib/indicators';
 import { createClaudeService } from '@/lib/ai';
 import { createGeminiService } from '@/lib/ai/gemini';
@@ -105,14 +105,27 @@ export async function POST(request: NextRequest) {
 
     // Fetch fresh data
     const [price, historicalData] = await Promise.all([
-      binanceService.getCurrentPrice(symbol),
-      binanceService.getHistoricalData(symbol, interval, 200),
+      coinGeckoService.getCurrentPrice(symbol),
+      coinGeckoService.getHistoricalData(symbol, interval, 200),
     ]);
 
-    // Calculate indicators
+    console.log(`[Analysis] Fetched ${historicalData.data.length} candles for ${symbol}`);
+
+    // Calculate indicators - require at least 50 data points
+    if (historicalData.data.length < 50) {
+      return NextResponse.json<ApiResponse<null>>(
+        {
+          success: false,
+          error: `Insufficient data: got ${historicalData.data.length} candles, need at least 50`,
+        },
+        { status: 500 }
+      );
+    }
+
     const indicators = IndicatorCalculator.calculateAll(symbol, historicalData.data);
 
     if (!indicators) {
+      console.error(`[Analysis] Failed to calculate indicators for ${symbol} with ${historicalData.data.length} candles`);
       return NextResponse.json<ApiResponse<null>>(
         {
           success: false,

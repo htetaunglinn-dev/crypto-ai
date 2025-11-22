@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { binanceService } from '@/lib/services';
+import { coinGeckoService } from '@/lib/services';
 import { IndicatorCalculator } from '@/lib/indicators';
 import { Indicator } from '@/lib/db/models';
 import { connectToDatabase } from '@/lib/db/connection';
@@ -50,13 +50,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch historical data and calculate indicators
-    const historicalData = await binanceService.getHistoricalData(symbol, interval, 200);
+    const historicalData = await coinGeckoService.getHistoricalData(symbol, interval, 200);
 
-    if (!historicalData.data || historicalData.data.length < 200) {
+    console.log(`[Indicators] Fetched ${historicalData.data?.length || 0} candles for ${symbol}`);
+
+    // Require at least 50 data points for indicators
+    if (!historicalData.data || historicalData.data.length < 50) {
       return NextResponse.json<ApiResponse<null>>(
         {
           success: false,
-          error: 'Insufficient data to calculate indicators',
+          error: `Insufficient data: got ${historicalData.data?.length || 0} candles, need at least 50`,
         },
         { status: 500 }
       );
