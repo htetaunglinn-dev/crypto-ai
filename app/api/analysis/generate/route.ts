@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { binanceService } from '@/lib/services';
+import { cryptoCompareService } from '@/lib/services';
 import { IndicatorCalculator } from '@/lib/indicators';
 import { createClaudeService } from '@/lib/ai';
 import { createGeminiService } from '@/lib/ai/gemini';
@@ -105,8 +105,8 @@ export async function POST(request: NextRequest) {
 
     // Fetch fresh data
     const [price, historicalData] = await Promise.all([
-      binanceService.getCurrentPrice(symbol),
-      binanceService.getHistoricalData(symbol, interval, 200),
+      cryptoCompareService.getCurrentPrice(symbol),
+      cryptoCompareService.getHistoricalData(symbol, interval, 200),
     ]);
 
     // Calculate indicators
