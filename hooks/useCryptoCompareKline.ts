@@ -32,13 +32,17 @@ export function useCryptoCompareKline(
     const [indicators, setIndicators] = useState<AllIndicators | null>(null);
     const [error, setError] = useState<WebSocketError | null>(null);
 
-    // Update initial data
+    // Update initial data when it changes or symbol changes
     useEffect(() => {
-        if (initialData.length === 0) return;
+        // Reset data when symbol changes to avoid showing stale data
         setOhlcvData(initialData);
+        setIndicators(null);
+
         if (initialData.length >= 200) {
             const newIndicators = IndicatorCalculator.calculateAll(symbol, initialData);
-            if (newIndicators) setIndicators(newIndicators);
+            if (newIndicators) {
+                setIndicators(newIndicators);
+            }
         }
     }, [initialData, symbol]);
 

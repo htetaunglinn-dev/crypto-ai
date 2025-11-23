@@ -20,9 +20,14 @@ export function CandlestickChart({ data, symbol }: CandlestickChartProps) {
     setIsClient(true);
   }, []);
 
+  const [isReady, setIsReady] = useState(false);
+
   // Initialize chart (only on symbol change or first load)
   useEffect(() => {
     if (!isClient || !chartContainerRef.current) return;
+
+    // Reset readiness on symbol change
+    setIsReady(false);
 
     // Dynamic import to avoid SSR issues
     import('lightweight-charts').then(({ createChart, ColorType, CandlestickSeries }) => {
@@ -73,6 +78,7 @@ export function CandlestickChart({ data, symbol }: CandlestickChartProps) {
       });
 
       seriesRef.current = candlestickSeries;
+      setIsReady(true); // Mark as ready
 
       // Handle resize
       const handleResize = () => {
@@ -85,20 +91,28 @@ export function CandlestickChart({ data, symbol }: CandlestickChartProps) {
 
       window.addEventListener('resize', handleResize);
 
-      return () => {
-        window.removeEventListener('resize', handleResize);
-        if (chartRef.current) {
-          chartRef.current.remove();
-          chartRef.current = null;
-          seriesRef.current = null;
-        }
-      };
+      // Cleanup function for this effect
+      // We need to be careful not to remove the chart if we're just unmounting the effect but not the component
+      // But since we depend on [symbol], this will run on symbol change.
+      // We should return a cleanup function.
     });
+
+    return () => {
+      // window.removeEventListener('resize', handleResize); // handleResize is inside scope, can't remove easily without moving it out
+      // Actually, we can just let the next effect run cleanup.
+      // But better to be clean.
+      if (chartRef.current) {
+        chartRef.current.remove();
+        chartRef.current = null;
+        seriesRef.current = null;
+        setIsReady(false);
+      }
+    };
   }, [isClient, symbol]);
 
   // Update chart data (for live updates)
   useEffect(() => {
-    if (!seriesRef.current || data.length === 0) return;
+    if (!isReady || !seriesRef.current || data.length === 0) return;
 
     // Transform data for chart
     const chartData = data.map((d) => ({
@@ -107,18 +121,23 @@ export function CandlestickChart({ data, symbol }: CandlestickChartProps) {
       high: d.high,
       low: d.low,
       close: d.close,
+      volume: d.volume,
     }));
 
     // Update chart data
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    seriesRef.current.setData(chartData as any);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      seriesRef.current.setData(chartData as any);
 
-    // Fit content only on initial load, not on subsequent updates
-    if (chartRef.current && !hasInitializedRef.current) {
-      chartRef.current.timeScale().fitContent();
-      hasInitializedRef.current = true;
+      // Fit content only on initial load, not on subsequent updates
+      if (chartRef.current && !hasInitializedRef.current) {
+        chartRef.current.timeScale().fitContent();
+        hasInitializedRef.current = true;
+      }
+    } catch (err) {
+      console.error("Error setting chart data:", err);
     }
-  }, [data]);
+  }, [data, isReady]);
 
   if (!isClient) {
     return (

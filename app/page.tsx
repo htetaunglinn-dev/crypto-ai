@@ -61,6 +61,7 @@ export default function Home() {
   const fetchHistoricalData = useCallback(async (symbol: TradingPair) => {
     try {
       setIsLoadingChart(true);
+      setInitialHistoricalData([]); // Clear previous data
       const response = await fetch(`/api/crypto/historical?symbol=${symbol}&interval=1d&limit=200`);
       const data = await response.json();
 
@@ -293,7 +294,7 @@ export default function Home() {
                   {isLoadingChart ? (
                     <div className="h-96 animate-pulse rounded-md bg-gray-800" />
                   ) : ohlcvData && ohlcvData.length > 0 ? (
-                    <CandlestickChart data={ohlcvData} symbol={selectedSymbol} />
+                    <CandlestickChart key={selectedSymbol} data={ohlcvData} symbol={selectedSymbol} />
                   ) : (
                     <div className="h-96 flex items-center justify-center rounded-md bg-gray-800">
                       <p className="text-sm text-gray-400">No chart data available</p>
