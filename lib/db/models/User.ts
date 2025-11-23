@@ -28,7 +28,7 @@ const UserSchema = new Schema<IUser>(
 );
 
 // Index for efficient queries
-UserSchema.index({ email: 1 });
+// UserSchema.index({ email: 1 }); // Removed to avoid duplicate index warning as unique: true already creates one
 
 const User: Model<IUser> =
   mongoose.models.User || mongoose.model<IUser>('User', UserSchema);

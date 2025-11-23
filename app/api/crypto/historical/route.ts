@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { binanceService } from '@/lib/services';
+import { cryptoCompareService } from '@/lib/services';
 import { CryptoPrice } from '@/lib/db/models';
 import { connectToDatabase } from '@/lib/db/connection';
 import type { ApiResponse, HistoricalData, TradingPair, TimeInterval } from '@/types';
@@ -65,8 +65,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Fetch fresh data from Binance
-    const data = await binanceService.getHistoricalData(symbol, interval, limit);
+    // Fetch fresh data from CryptoCompare
+    const data = await cryptoCompareService.getHistoricalData(symbol, interval, limit);
 
     // Update cache asynchronously (don't wait for it)
     if (process.env.MONGODB_URI) {

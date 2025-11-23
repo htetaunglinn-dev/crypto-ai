@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { binanceService } from '@/lib/services/binance';
+import { cryptoCompareService } from '@/lib/services/cryptocompare';
 import type { BinanceSymbolInfo } from '@/lib/services/binance';
 
 // Cache the trading pairs for 24 hours
@@ -21,7 +21,7 @@ export async function GET() {
     }
 
     // Fetch fresh data
-    const pairs = await binanceService.getAvailablePairs();
+    const pairs = await cryptoCompareService.getAvailablePairs();
 
     // Update cache
     cachedPairs = pairs;

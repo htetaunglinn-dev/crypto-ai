@@ -12,8 +12,8 @@ import { RSICard, MACDCard, BollingerBandsCard, EMACard } from '@/components/ind
 import { ClaudeInsightsPanel } from '@/components/ai';
 import { CandlestickChart } from '@/components/charts';
 import { TradingPairSearch } from '@/components/TradingPairSearch';
-import { useBinanceTickerStream } from '@/hooks/useBinanceTickerStream';
-import { useBinanceKlineStream } from '@/hooks/useBinanceKlineStream';
+import { useCryptoCompareTickerStream } from '@/hooks/useCryptoCompareTickerStream';
+import { useCryptoCompareKline } from '@/hooks/useCryptoCompareKline';
 import { useIndicatorHistory } from '@/hooks/useIndicatorHistory';
 import { loadWatchlist, addToWatchlist, removeFromWatchlist, isWatchlistFull, isWatchlistAtMinimum } from '@/lib/storage/watchlist';
 
@@ -45,7 +45,7 @@ export default function Home() {
     isConnected: isPricesConnected,
     error: pricesError,
     reconnect: reconnectPrices,
-  } = useBinanceTickerStream(watchlistPairs as TradingPair[]);
+  } = useCryptoCompareTickerStream(watchlistPairs as TradingPair[]);
 
   const {
     ohlcvData,
@@ -53,7 +53,7 @@ export default function Home() {
     isConnected: isChartConnected,
     error: chartError,
     reconnect: reconnectChart,
-  } = useBinanceKlineStream(selectedSymbol, '1d', initialHistoricalData);
+  } = useCryptoCompareKline(selectedSymbol, '1d', initialHistoricalData);
 
   const indicatorHistory = useIndicatorHistory(ohlcvData || [], indicators);
 
@@ -277,11 +277,10 @@ export default function Home() {
                             ${currentPrice.price.toFixed(2)}
                           </span>
                           <span
-                            className={`text-sm font-medium ${
-                              currentPrice.changePercent24h >= 0
-                                ? 'text-green-500'
-                                : 'text-red-500'
-                            }`}
+                            className={`text-sm font-medium ${currentPrice.changePercent24h >= 0
+                              ? 'text-green-500'
+                              : 'text-red-500'
+                              }`}
                           >
                             {currentPrice.changePercent24h >= 0 ? '+' : ''}
                             {currentPrice.changePercent24h.toFixed(2)}%
@@ -393,7 +392,7 @@ export default function Home() {
       <footer className="border-t border-gray-800 bg-black py-4">
         <div className="mx-auto max-w-7xl px-4 text-center">
           <p className="text-xs text-gray-500">
-            Data provided by Binance API • AI Analysis by {analysis?.aiProvider === 'gemini' ? 'Gemini' : 'Claude'} • Built with Next.js
+            Data provided by CryptoCompare API • AI Analysis by {analysis?.aiProvider === 'gemini' ? 'Gemini' : 'Claude'} • Built with Next.js
           </p>
         </div>
       </footer>
