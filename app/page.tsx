@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, startTransition } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import axios from 'axios';
-import type { CryptoPrice, AllIndicators, ClaudeAnalysis, TradingPair, HistoricalData, OHLCV } from '@/types';
+import type { CryptoPrice, AllIndicators, ClaudeAnalysis, TradingPair, HistoricalData, OHLCV, TimeInterval } from '@/types';
 import type { FearGreedData, FearGreedHistoryPoint, FearGreedResponse } from '@/types/fear-greed';
 import { Header } from '@/components/Header';
 import { PriceCard } from '@/components/PriceCard';
@@ -21,6 +21,7 @@ export default function Home() {
   const { data: session, status } = useSession();
   const [watchlistPairs, setWatchlistPairs] = useState<string[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<TradingPair>('BTCUSDT');
+  const [selectedInterval, setSelectedInterval] = useState<TimeInterval>('1d');
   const [initialHistoricalData, setInitialHistoricalData] = useState<OHLCV[]>([]);
   const [analysis, setAnalysis] = useState<ClaudeAnalysis | null>(null);
   const [isLoadingChart, setIsLoadingChart] = useState(false);
@@ -53,16 +54,16 @@ export default function Home() {
     isConnected: isChartConnected,
     error: chartError,
     reconnect: reconnectChart,
-  } = useCryptoCompareKline(selectedSymbol, '1d', initialHistoricalData);
+  } = useCryptoCompareKline(selectedSymbol, selectedInterval, initialHistoricalData);
 
   const indicatorHistory = useIndicatorHistory(ohlcvData || [], indicators);
 
   // Fetch initial historical data via REST API
-  const fetchHistoricalData = useCallback(async (symbol: TradingPair) => {
+  const fetchHistoricalData = useCallback(async (symbol: TradingPair, interval: TimeInterval) => {
     try {
       setIsLoadingChart(true);
       setInitialHistoricalData([]); // Clear previous data
-      const response = await fetch(`/api/crypto/historical?symbol=${symbol}&interval=1d&limit=200`);
+      const response = await fetch(`/api/crypto/historical?symbol=${symbol}&interval=${interval}&limit=200`);
       const data = await response.json();
 
       if (data.success) {
@@ -119,7 +120,7 @@ export default function Home() {
 
   useEffect(() => {
     if (selectedSymbol) {
-      fetchHistoricalData(selectedSymbol);
+      fetchHistoricalData(selectedSymbol, selectedInterval);
 
       if (status === 'authenticated') {
         const timer = setTimeout(() => {
@@ -129,7 +130,7 @@ export default function Home() {
         return () => clearTimeout(timer);
       }
     }
-  }, [selectedSymbol, fetchHistoricalData, fetchAnalysis, status]);
+  }, [selectedSymbol, selectedInterval, fetchHistoricalData, fetchAnalysis, status]);
 
   // Update error state when WebSocket errors occur
   useEffect(() => {
@@ -289,6 +290,20 @@ export default function Home() {
                         </div>
                       )}
                     </div>
+                    <div className="flex gap-2">
+                      {(['1h', '4h', '1d', '1w'] as const).map((interval) => (
+                        <button
+                          key={interval}
+                          onClick={() => setSelectedInterval(interval)}
+                          className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${selectedInterval === interval
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+                            }`}
+                        >
+                          {interval.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {isLoadingChart ? (
@@ -398,13 +413,15 @@ export default function Home() {
         </div>
       </footer>
 
-      {showSearchDialog && (
-        <TradingPairSearch
-          onSelect={handleAddPair}
-          onClose={() => setShowSearchDialog(false)}
-          excludedSymbols={watchlistPairs}
-        />
-      )}
-    </div>
+      {
+        showSearchDialog && (
+          <TradingPairSearch
+            onSelect={handleAddPair}
+            onClose={() => setShowSearchDialog(false)}
+            excludedSymbols={watchlistPairs}
+          />
+        )
+      }
+    </div >
   );
 }
