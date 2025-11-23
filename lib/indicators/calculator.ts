@@ -84,7 +84,6 @@ export class IndicatorCalculator {
 
   /**
    * Calculate EMA (Exponential Moving Average) for multiple periods
-   * Calculates only the EMAs that have enough data points
    */
   static calculateEMAs(data: OHLCV[]): {
     ema9: number;
@@ -92,8 +91,7 @@ export class IndicatorCalculator {
     ema50: number;
     ema200: number;
   } | null {
-    // Need at least 50 candles for basic EMAs
-    if (data.length < 50) {
+    if (data.length < 200) {
       return null;
     }
 
@@ -102,19 +100,13 @@ export class IndicatorCalculator {
     const ema9 = EMA.calculate({ values, period: 9 });
     const ema21 = EMA.calculate({ values, period: 21 });
     const ema50 = EMA.calculate({ values, period: 50 });
-
-    // Only calculate EMA200 if we have enough data
-    let ema200Value = 0;
-    if (data.length >= 200) {
-      const ema200 = EMA.calculate({ values, period: 200 });
-      ema200Value = ema200[ema200.length - 1] || 0;
-    }
+    const ema200 = EMA.calculate({ values, period: 200 });
 
     return {
       ema9: ema9[ema9.length - 1] || 0,
       ema21: ema21[ema21.length - 1] || 0,
       ema50: ema50[ema50.length - 1] || 0,
-      ema200: ema200Value,
+      ema200: ema200[ema200.length - 1] || 0,
     };
   }
 
