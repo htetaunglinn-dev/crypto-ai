@@ -26,23 +26,30 @@ const MAX_CANDLES = 200;
 export function useCryptoCompareKline(
     symbol: TradingPair,
     interval: TimeInterval,
-    initialData: OHLCV[] = []
+    initialData: { symbol: string, data: OHLCV[] } | null = null
 ): UseCryptoCompareKlineResult {
-    const [ohlcvData, setOhlcvData] = useState<OHLCV[]>(initialData);
+    const [ohlcvData, setOhlcvData] = useState<OHLCV[]>(initialData?.data || []);
     const [indicators, setIndicators] = useState<AllIndicators | null>(null);
     const [error, setError] = useState<WebSocketError | null>(null);
 
     // Update initial data when it changes or symbol changes
     useEffect(() => {
-        // Reset data when symbol changes to avoid showing stale data
-        setOhlcvData(initialData);
-        setIndicators(null);
+        // Only use initial data if it matches the current symbol
+        if (initialData && initialData.symbol === symbol && initialData.data.length > 0) {
+            setOhlcvData(initialData.data);
 
-        if (initialData.length >= 200) {
-            const newIndicators = IndicatorCalculator.calculateAll(symbol, initialData);
-            if (newIndicators) {
-                setIndicators(newIndicators);
+            if (initialData.data.length >= 200) {
+                const newIndicators = IndicatorCalculator.calculateAll(symbol, initialData.data);
+                if (newIndicators) {
+                    setIndicators(newIndicators);
+                }
             }
+        } else if (!initialData || initialData.symbol !== symbol) {
+            // If we switched symbols and don't have matching initial data yet, 
+            // we might want to clear or keep previous until load? 
+            // Better to clear to avoid misleading chart
+            setOhlcvData([]);
+            setIndicators(null);
         }
     }, [initialData, symbol]);
 

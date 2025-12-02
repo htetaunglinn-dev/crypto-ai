@@ -22,7 +22,7 @@ export default function Home() {
   const [watchlistPairs, setWatchlistPairs] = useState<string[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<TradingPair>('BTCUSDT');
   const [selectedInterval, setSelectedInterval] = useState<TimeInterval>('1d');
-  const [initialHistoricalData, setInitialHistoricalData] = useState<OHLCV[]>([]);
+  const [initialHistoricalData, setInitialHistoricalData] = useState<{ symbol: string, data: OHLCV[] } | null>(null);
   const [analysis, setAnalysis] = useState<ClaudeAnalysis | null>(null);
   const [isLoadingChart, setIsLoadingChart] = useState(false);
   const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
@@ -62,12 +62,12 @@ export default function Home() {
   const fetchHistoricalData = useCallback(async (symbol: TradingPair, interval: TimeInterval) => {
     try {
       setIsLoadingChart(true);
-      setInitialHistoricalData([]); // Clear previous data
+      setInitialHistoricalData(null); // Clear previous data
       const response = await fetch(`/api/crypto/historical?symbol=${symbol}&interval=${interval}&limit=200`);
       const data = await response.json();
 
       if (data.success) {
-        setInitialHistoricalData(data.data.data);
+        setInitialHistoricalData({ symbol, data: data.data.data });
       } else {
         setError(data.error || 'Failed to fetch historical data');
       }
@@ -228,14 +228,14 @@ export default function Home() {
                 <div className="mb-3">
                   <button
                     onClick={() => setShowSearchDialog(true)}
-                    disabled={isWatchlistFull()}
+                    disabled={watchlistPairs.length >= 10}
                     className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2.5 text-left text-sm text-gray-500 hover:border-gray-600 hover:bg-gray-800/80 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                     <span>
-                      {isWatchlistFull() ? 'Watchlist full (10/10)' : 'Search to add pairs...'}
+                      {watchlistPairs.length >= 10 ? 'Watchlist full (10/10)' : 'Search to add pairs...'}
                     </span>
                   </button>
                 </div>
@@ -256,7 +256,7 @@ export default function Home() {
                       isSelected={price.symbol === selectedSymbol}
                       onClick={() => setSelectedSymbol(price.symbol as TradingPair)}
                       onRemove={handleRemovePair}
-                      canRemove={!isWatchlistAtMinimum()}
+                      canRemove={watchlistPairs.length > 1}
                     />
                   ))
                 )}

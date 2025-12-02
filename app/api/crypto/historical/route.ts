@@ -1,23 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { cryptoCompareService } from '@/lib/services';
-import { CryptoPrice } from '@/lib/db/models';
-import { connectToDatabase } from '@/lib/db/connection';
-import type { ApiResponse, HistoricalData, TradingPair, TimeInterval } from '@/types';
+import { NextRequest, NextResponse } from "next/server";
+import { cryptoCompareService } from "@/lib/services";
+import { CryptoPrice } from "@/lib/db/models";
+import { connectToDatabase } from "@/lib/db/connection";
+import type {
+  ApiResponse,
+  HistoricalData,
+  TradingPair,
+  TimeInterval,
+} from "@/types";
 
-const CACHE_DURATION = parseInt(process.env.CACHE_DURATION || '300', 10); // 5 minutes default
+const CACHE_DURATION = parseInt(process.env.CACHE_DURATION || "300", 10);
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const symbol = searchParams.get('symbol') as TradingPair;
-    const interval = (searchParams.get('interval') || '1h') as TimeInterval;
-    const limit = parseInt(searchParams.get('limit') || '100', 10);
+    const symbol = searchParams.get("symbol") as TradingPair;
+    const interval = (searchParams.get("interval") || "1h") as TimeInterval;
+    const limit = parseInt(searchParams.get("limit") || "100", 10);
 
     if (!symbol) {
       return NextResponse.json<ApiResponse<null>>(
         {
           success: false,
-          error: 'Symbol parameter is required',
+          error: "Symbol parameter is required",
         },
         { status: 400 }
       );
@@ -26,17 +31,20 @@ export async function GET(request: NextRequest) {
     const now = Date.now();
     let cached = null;
 
-    // Try to get from cache first with timeout (only if MongoDB is configured)
     if (process.env.MONGODB_URI) {
       try {
-        // Race between cache check and 3-second timeout
         const cachePromise = (async () => {
-          await connectToDatabase();
-          return await CryptoPrice.findOne({ symbol, interval });
+          try {
+            await connectToDatabase();
+            return await CryptoPrice.findOne({ symbol, interval });
+          } catch (err) {
+            console.warn("MongoDB connection failed, skipping cache:", err);
+            return null;
+          }
         })();
 
         const timeoutPromise = new Promise<null>((resolve) =>
-          setTimeout(() => resolve(null), 3000)
+          setTimeout(() => resolve(null), 2000)
         );
 
         cached = await Promise.race([cachePromise, timeoutPromise]);
@@ -44,7 +52,6 @@ export async function GET(request: NextRequest) {
         if (cached) {
           const cacheAge = now - cached.updatedAt.getTime();
 
-          // Return cached data if fresh enough
           if (cacheAge < CACHE_DURATION * 1000) {
             const data: HistoricalData = {
               symbol: cached.symbol,
@@ -61,18 +68,24 @@ export async function GET(request: NextRequest) {
           }
         }
       } catch (dbError) {
-        console.warn('MongoDB cache unavailable, fetching directly from Binance:', dbError);
+        console.warn(
+          "MongoDB cache unavailable, fetching directly from CryptoCompare:",
+          dbError
+        );
       }
     }
 
-    // Fetch fresh data from CryptoCompare
-    const data = await cryptoCompareService.getHistoricalData(symbol, interval, limit);
+    const data = await cryptoCompareService.getHistoricalData(
+      symbol,
+      interval,
+      limit
+    );
 
-    // Update cache asynchronously (don't wait for it)
     if (process.env.MONGODB_URI) {
-      // Fire and forget cache update with timeout
       const updateCache = async () => {
         try {
+          await connectToDatabase();
+
           const updatePromise = CryptoPrice.findOneAndUpdate(
             { symbol, interval },
             { symbol, interval, data: data.data },
@@ -80,17 +93,18 @@ export async function GET(request: NextRequest) {
           );
 
           const timeoutPromise = new Promise<null>((resolve) =>
-            setTimeout(() => resolve(null), 3000)
+            setTimeout(() => resolve(null), 2000)
           );
 
           await Promise.race([updatePromise, timeoutPromise]);
         } catch (dbError) {
-          console.warn('Failed to update cache:', dbError);
+          console.warn("Failed to update cache:", dbError);
         }
       };
 
-      // Don't await - let it update in the background
-      updateCache().catch((err) => console.warn('Cache update error:', err));
+      updateCache().catch((err) => {
+        console.warn("Cache update error (non-critical):", err);
+      });
     }
 
     return NextResponse.json<ApiResponse<HistoricalData>>({
@@ -100,15 +114,18 @@ export async function GET(request: NextRequest) {
       timestamp: now,
     });
   } catch (error) {
-    console.error('Error in /api/crypto/historical:', error);
+    console.error("Error in /api/crypto/historical:", error);
     return NextResponse.json<ApiResponse<null>>(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to fetch historical data',
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch historical data",
       },
       { status: 500 }
     );
   }
 }
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";

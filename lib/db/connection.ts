@@ -1,9 +1,10 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/crypto-ai';
+const MONGODB_URI =
+  process.env.MONGODB_URI || "mongodb://localhost:27017/crypto-ai";
 
 if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable');
+  throw new Error("Please define the MONGODB_URI environment variable");
 }
 
 interface MongooseCache {
@@ -23,6 +24,10 @@ if (!global.mongoose) {
 }
 
 export async function connectToDatabase(): Promise<typeof mongoose> {
+  if (!MONGODB_URI || MONGODB_URI === "mongodb://localhost:27017/crypto-ai") {
+    throw new Error("MongoDB URI not configured");
+  }
+
   if (cached.conn) {
     return cached.conn;
   }
@@ -30,12 +35,20 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
+      serverSelectionTimeoutMS: 2000,
+      socketTimeoutMS: 2000,
     };
 
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
-      console.log('✅ MongoDB connected successfully');
-      return mongoose;
-    });
+    cached.promise = mongoose
+      .connect(MONGODB_URI, opts)
+      .then((mongoose) => {
+        console.log("✅ MongoDB connected successfully");
+        return mongoose;
+      })
+      .catch((error) => {
+        cached.promise = null;
+        throw error;
+      });
   }
 
   try {

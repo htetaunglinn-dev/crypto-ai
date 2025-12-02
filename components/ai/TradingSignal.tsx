@@ -52,8 +52,8 @@ export function TradingSignal({ signal, confidence }: TradingSignalProps) {
       </div>
 
       <div className="mt-4">
-        <div className={`rounded-md ${getSignalColor(signal)} bg-opacity-10 p-3`}>
-          <p className={`text-xs ${getSignalTextColor(signal)}`}>
+        <div className={`rounded-md ${getSignalColor(signal)} p-3`}>
+          <p className="text-xs font-medium text-white">
             {signal === 'strong_buy' && 'Strong buying opportunity with multiple bullish confirmations'}
             {signal === 'buy' && 'Bullish bias with some positive signals'}
             {signal === 'hold' && 'Mixed signals - wait for clearer confirmation'}
