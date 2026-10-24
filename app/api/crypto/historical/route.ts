@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cryptoCompareService } from "@/lib/services";
+import { marketDataService } from "@/lib/services";
 import { CryptoPrice } from "@/lib/db/models";
 import { connectToDatabase } from "@/lib/db/connection";
 import type {
@@ -69,13 +69,13 @@ export async function GET(request: NextRequest) {
         }
       } catch (dbError) {
         console.warn(
-          "MongoDB cache unavailable, fetching directly from CryptoCompare:",
+          "MongoDB cache unavailable, fetching directly from market API:",
           dbError
         );
       }
     }
 
-    const data = await cryptoCompareService.getHistoricalData(
+    const data = await marketDataService.getHistoricalData(
       symbol,
       interval,
       limit

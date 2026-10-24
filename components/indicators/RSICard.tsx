@@ -30,9 +30,9 @@ function RSICardComponent({ data, history }: RSICardProps) {
   };
 
   const getBackgroundGradient = () => {
-    if (data.value > 70) return 'from-red-500/20 to-transparent';
-    if (data.value < 30) return 'from-green-500/20 to-transparent';
-    return 'from-yellow-500/20 to-transparent';
+    if (data.value > 70) return 'from-red-500/10 to-transparent';
+    if (data.value < 30) return 'from-green-500/10 to-transparent';
+    return 'from-yellow-500/[0.07] to-transparent';
   };
 
   useLayoutEffect(() => {
@@ -135,10 +135,10 @@ function RSICardComponent({ data, history }: RSICardProps) {
   }, [history]);
 
   return (
-    <div className={`rounded-lg border border-gray-800 bg-gradient-to-br ${getBackgroundGradient()} bg-gray-900 p-6 shadow-lg`}>
+    <div className={`card card-pad relative overflow-hidden bg-gradient-to-br ${getBackgroundGradient()}`}>
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-lg font-bold text-white">RSI (14)</h3>
-        <span className={`rounded-full px-3 py-1 text-sm font-semibold whitespace-nowrap ${getColor()} ${
+        <h3 className="text-sm font-semibold text-white">RSI (14)</h3>
+        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${getColor()} ${
           data.value > 70 ? 'bg-red-500/20' : data.value < 30 ? 'bg-green-500/20' : 'bg-yellow-500/20'
         }`}>
           {getSignalText()}
@@ -146,7 +146,7 @@ function RSICardComponent({ data, history }: RSICardProps) {
       </div>
 
       <div className="mb-4">
-        <div className="text-4xl font-bold text-white">{data.value.toFixed(2)}</div>
+        <div className="num text-3xl font-semibold tracking-tight text-white">{data.value.toFixed(2)}</div>
       </div>
 
       <div ref={chartRef} className="h-40 w-full" />

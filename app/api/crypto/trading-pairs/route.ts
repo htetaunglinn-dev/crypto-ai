@@ -1,17 +1,15 @@
 import { NextResponse } from 'next/server';
-import { cryptoCompareService } from '@/lib/services/cryptocompare';
-import type { BinanceSymbolInfo } from '@/lib/services/binance';
+import { marketDataService, type MarketPair } from '@/lib/services/market';
 
-// Cache the trading pairs for 24 hours
-let cachedPairs: BinanceSymbolInfo[] | null = null;
+// Pairs are ranked by live 24h volume, so refresh the list every few minutes
+let cachedPairs: MarketPair[] | null = null;
 let cacheTimestamp: number = 0;
-const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+const CACHE_DURATION = 5 * 60 * 1000;
 
 export async function GET() {
   try {
     const now = Date.now();
 
-    // Check if cache is valid
     if (cachedPairs && (now - cacheTimestamp) < CACHE_DURATION) {
       return NextResponse.json({
         pairs: cachedPairs,
@@ -20,10 +18,8 @@ export async function GET() {
       });
     }
 
-    // Fetch fresh data
-    const pairs = await cryptoCompareService.getAvailablePairs();
+    const pairs = await marketDataService.getAvailablePairs();
 
-    // Update cache
     cachedPairs = pairs;
     cacheTimestamp = now;
 
@@ -34,6 +30,14 @@ export async function GET() {
     });
   } catch (error) {
     console.error('Error in trading-pairs API route:', error);
+    if (cachedPairs) {
+      return NextResponse.json({
+        pairs: cachedPairs,
+        cached: true,
+        stale: true,
+        cachedAt: new Date(cacheTimestamp).toISOString(),
+      });
+    }
     return NextResponse.json(
       {
         error: 'Failed to fetch trading pairs',
@@ -43,3 +47,5 @@ export async function GET() {
     );
   }
 }
+
+export const dynamic = 'force-dynamic';

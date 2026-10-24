@@ -6,19 +6,26 @@ import { MongoDBAdapter } from '@auth/mongodb-adapter';
 import bcrypt from 'bcryptjs';
 import { connectToDatabase } from './db/connection';
 import { User } from './db/models';
-import clientPromise from './db/mongodb-client';
+import clientPromise, { isDatabaseConfigured } from './db/mongodb-client';
+
+// Without a database the dashboard still works; only sign-in and AI analysis are unavailable.
+// Auth.js needs a secret even then. In development, or when there are no accounts to protect,
+// a fixed fallback keeps session checks working.
+const secret =
+  process.env.AUTH_SECRET ??
+  process.env.NEXTAUTH_SECRET ??
+  (process.env.NODE_ENV !== 'production' || !isDatabaseConfigured ? 'dev-only-insecure-secret' : undefined);
 
 export const config = {
-  adapter: MongoDBAdapter(clientPromise),
+  ...(clientPromise ? { adapter: MongoDBAdapter(clientPromise) } : {}),
   providers: [
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-    GitHub({
-      clientId: process.env.GITHUB_ID!,
-      clientSecret: process.env.GITHUB_SECRET!,
-    }),
+    // OAuth providers are only offered when their credentials are set
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? [Google({ clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET })]
+      : []),
+    ...(process.env.GITHUB_ID && process.env.GITHUB_SECRET
+      ? [GitHub({ clientId: process.env.GITHUB_ID, clientSecret: process.env.GITHUB_SECRET })]
+      : []),
     Credentials({
       name: 'credentials',
       credentials: {
@@ -76,7 +83,8 @@ export const config = {
       return session;
     },
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret,
+  trustHost: true,
 } satisfies NextAuthConfig;
 
 export const { handlers, auth, signIn, signOut } = NextAuth(config);

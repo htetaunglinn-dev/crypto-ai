@@ -1,155 +1,180 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import type { IChartApi, ISeriesApi, UTCTimestamp } from 'lightweight-charts';
 import type { OHLCV } from '@/types';
+import { cn, formatCurrency, formatLargeNumber } from '@/lib/utils';
 
 interface CandlestickChartProps {
   data: OHLCV[];
   symbol: string;
+  className?: string;
 }
 
-export function CandlestickChart({ data, symbol }: CandlestickChartProps) {
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<ReturnType<typeof import('lightweight-charts').createChart> | null>(null);
-  const seriesRef = useRef<ReturnType<ReturnType<typeof import('lightweight-charts').createChart>['addSeries']> | null>(null);
-  const [isClient, setIsClient] = useState(false);
-  const hasInitializedRef = useRef(false);
+const UP = '#1fc786';
+const DOWN = '#f4475d';
 
-  // Only run on client side
+function toCandle(d: OHLCV) {
+  return { time: Math.floor(d.timestamp / 1000) as UTCTimestamp, open: d.open, high: d.high, low: d.low, close: d.close };
+}
+
+function toVolume(d: OHLCV) {
+  return {
+    time: Math.floor(d.timestamp / 1000) as UTCTimestamp,
+    value: d.volume,
+    color: d.close >= d.open ? 'rgba(31,199,134,0.35)' : 'rgba(244,71,93,0.35)',
+  };
+}
+
+export function CandlestickChart({ data, symbol, className }: CandlestickChartProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const candleRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const volumeRef = useRef<ISeriesApi<'Histogram'> | null>(null);
+  const renderedRef = useRef<{ lastTs: number; length: number } | null>(null);
+  const dataRef = useRef(data);
+  const [ready, setReady] = useState(false);
+  const [hover, setHover] = useState<OHLCV | null>(null);
+
   useEffect(() => {
-    setIsClient(true);
-  }, []);
+    dataRef.current = data;
+  }, [data]);
 
-  const [isReady, setIsReady] = useState(false);
-
-  // Initialize chart (only on symbol change or first load)
+  // Create the chart once per symbol
   useEffect(() => {
-    if (!isClient || !chartContainerRef.current) return;
+    let disposed = false;
 
-    // Reset readiness on symbol change
-    setIsReady(false);
+    import('lightweight-charts').then(({ createChart, ColorType, CandlestickSeries, HistogramSeries, CrosshairMode }) => {
+      if (disposed || !containerRef.current) return;
 
-    // Dynamic import to avoid SSR issues
-    import('lightweight-charts').then(({ createChart, ColorType, CandlestickSeries }) => {
-      if (!chartContainerRef.current) return;
-
-      // Clean up previous chart
-      if (chartRef.current) {
-        chartRef.current.remove();
-        chartRef.current = null;
-        seriesRef.current = null;
-      }
-
-      // Reset initialization flag when chart is recreated
-      hasInitializedRef.current = false;
-
-      // Create chart
-      const chart = createChart(chartContainerRef.current, {
+      const chart = createChart(containerRef.current, {
+        autoSize: true,
         layout: {
-          background: { type: ColorType.Solid, color: '#111827' },
-          textColor: '#9ca3af',
+          background: { type: ColorType.Solid, color: 'transparent' },
+          textColor: '#8790a3',
+          fontFamily: 'var(--font-geist-mono), ui-monospace, monospace',
+          fontSize: 11,
+          attributionLogo: false,
         },
         grid: {
-          vertLines: { color: '#1f2937' },
-          horzLines: { color: '#1f2937' },
+          vertLines: { color: 'rgba(255,255,255,0.03)' },
+          horzLines: { color: 'rgba(255,255,255,0.04)' },
         },
-        width: chartContainerRef.current.clientWidth,
-        height: 400,
-        timeScale: {
-          timeVisible: true,
-          secondsVisible: false,
-          borderColor: '#374151',
+        crosshair: {
+          mode: CrosshairMode.Normal,
+          vertLine: { color: 'rgba(135,148,255,0.4)', labelBackgroundColor: '#262d3a' },
+          horzLine: { color: 'rgba(135,148,255,0.4)', labelBackgroundColor: '#262d3a' },
         },
-        rightPriceScale: {
-          borderColor: '#374151',
-        },
+        timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#1f2633', rightOffset: 4 },
+        rightPriceScale: { borderColor: '#1f2633', scaleMargins: { top: 0.08, bottom: 0.22 } },
+      });
+
+      const candles = chart.addSeries(CandlestickSeries, {
+        upColor: UP,
+        downColor: DOWN,
+        borderUpColor: UP,
+        borderDownColor: DOWN,
+        wickUpColor: UP,
+        wickDownColor: DOWN,
+        priceLineStyle: 2,
+      });
+
+      const volume = chart.addSeries(HistogramSeries, {
+        priceScaleId: 'volume',
+        priceFormat: { type: 'volume' },
+        lastValueVisible: false,
+        priceLineVisible: false,
+      });
+      chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+
+      chart.subscribeCrosshairMove((param) => {
+        if (!param.time) {
+          setHover(null);
+          return;
+        }
+        const ts = (param.time as number) * 1000;
+        setHover(dataRef.current.find((d) => d.timestamp === ts) ?? null);
       });
 
       chartRef.current = chart;
-
-      // Add candlestick series using v5 API
-      const candlestickSeries = chart.addSeries(CandlestickSeries, {
-        upColor: '#10b981',
-        downColor: '#ef4444',
-        borderDownColor: '#ef4444',
-        borderUpColor: '#10b981',
-        wickDownColor: '#ef4444',
-        wickUpColor: '#10b981',
-      });
-
-      seriesRef.current = candlestickSeries;
-      setIsReady(true); // Mark as ready
-
-      // Handle resize
-      const handleResize = () => {
-        if (chartContainerRef.current && chartRef.current) {
-          chartRef.current.applyOptions({
-            width: chartContainerRef.current.clientWidth,
-          });
-        }
-      };
-
-      window.addEventListener('resize', handleResize);
-
-      // Cleanup function for this effect
-      // We need to be careful not to remove the chart if we're just unmounting the effect but not the component
-      // But since we depend on [symbol], this will run on symbol change.
-      // We should return a cleanup function.
+      candleRef.current = candles;
+      volumeRef.current = volume;
+      renderedRef.current = null;
+      setReady(true);
     });
 
     return () => {
-      // window.removeEventListener('resize', handleResize); // handleResize is inside scope, can't remove easily without moving it out
-      // Actually, we can just let the next effect run cleanup.
-      // But better to be clean.
-      if (chartRef.current) {
-        chartRef.current.remove();
-        chartRef.current = null;
-        seriesRef.current = null;
-        setIsReady(false);
-      }
+      disposed = true;
+      chartRef.current?.remove();
+      chartRef.current = null;
+      candleRef.current = null;
+      volumeRef.current = null;
+      setReady(false);
     };
-  }, [isClient, symbol]);
+  }, [symbol]);
 
-  // Update chart data (for live updates)
+  // Push data: a live tick updates the last bar in place, anything else replaces the set
   useEffect(() => {
-    if (!isReady || !seriesRef.current || data.length === 0) return;
-
-    // Transform data for chart
-    const chartData = data.map((d) => ({
-      time: Math.floor(d.timestamp / 1000),
-      open: d.open,
-      high: d.high,
-      low: d.low,
-      close: d.close,
-      volume: d.volume,
-    }));
-
-    // Update chart data
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      seriesRef.current.setData(chartData as any);
-
-      // Fit content only on initial load, not on subsequent updates
-      if (chartRef.current && !hasInitializedRef.current) {
-        chartRef.current.timeScale().fitContent();
-        hasInitializedRef.current = true;
-      }
-    } catch (err) {
-      console.error("Error setting chart data:", err);
+    const candles = candleRef.current;
+    const volume = volumeRef.current;
+    if (!ready || !candles || !volume) return;
+    if (data.length === 0) {
+      renderedRef.current = null;
+      return;
     }
-  }, [data, isReady]);
 
-  if (!isClient) {
-    return (
-      <div className="w-full h-96 flex items-center justify-center rounded-md bg-gray-800">
-        <p className="text-sm text-gray-400">Loading chart...</p>
-      </div>
+    const prev = renderedRef.current;
+    const last = data[data.length - 1];
+    // Same forming candle, or exactly one new candle after the last one drawn
+    const isIncremental = !!prev && Math.abs(data.length - prev.length) <= 1 && (
+      last.timestamp === prev.lastTs ||
+      (data.length > 1 && data[data.length - 2].timestamp === prev.lastTs)
     );
-  }
+
+    const redraw = () => {
+      candles.setData(data.map(toCandle));
+      volume.setData(data.map(toVolume));
+    };
+
+    try {
+      if (isIncremental) {
+        candles.update(toCandle(last));
+        volume.update(toVolume(last));
+      } else {
+        redraw();
+        if (!prev) {
+          // Open on the most recent bars; older history stays a scroll away
+          chartRef.current?.timeScale().setVisibleLogicalRange({
+            from: Math.max(0, data.length - 120),
+            to: data.length + 4,
+          });
+        }
+      }
+    } catch {
+      redraw();
+    }
+    renderedRef.current = { lastTs: last.timestamp, length: data.length };
+  }, [data, ready]);
+
+  const legend = hover ?? data[data.length - 1];
+  const legendUp = legend ? legend.close >= legend.open : true;
 
   return (
-    <div className="w-full">
-      <div ref={chartContainerRef} className="w-full" />
+    <div className={cn('relative h-[340px] w-full sm:h-[420px]', className)}>
+      {legend && (
+        <div className="pointer-events-none absolute left-1 top-0 z-10 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] num">
+          {(['open', 'high', 'low', 'close'] as const).map((k) => (
+            <span key={k} className="text-gray-500">
+              {k[0].toUpperCase()}{' '}
+              <span className={legendUp ? 'text-up' : 'text-down'}>{formatCurrency(legend[k])}</span>
+            </span>
+          ))}
+          <span className="text-gray-500">
+            Vol <span className="text-gray-300">{formatLargeNumber(legend.volume).replace('$', '')}</span>
+          </span>
+        </div>
+      )}
+      <div ref={containerRef} className="h-full w-full" />
     </div>
   );
 }

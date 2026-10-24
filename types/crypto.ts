@@ -25,7 +25,8 @@ export interface HistoricalData {
   data: OHLCV[];
 }
 
-export type TradingPair = 'BTCUSDT' | 'ETHUSDT' | 'BNBUSDT' | 'SOLUSDT' | 'ADAUSDT';
+// Any Binance USDT spot pair; the named ones get editor autocomplete
+export type TradingPair = 'BTCUSDT' | 'ETHUSDT' | 'BNBUSDT' | 'SOLUSDT' | 'ADAUSDT' | (string & {});
 export type TimeInterval = '1m' | '5m' | '15m' | '1h' | '4h' | '1d' | '1w';
 
 // WebSocket Types

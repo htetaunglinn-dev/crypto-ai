@@ -7,14 +7,26 @@ export interface BinanceWebSocketConfig {
   onStateChange: (state: ConnectionState) => void;
 }
 
+/**
+ * Free, keyless Binance public market streams. data-stream.binance.vision serves market data
+ * only and is reachable from regions where stream.binance.com is blocked, so it goes first.
+ */
+const STREAM_HOSTS = [
+  'wss://data-stream.binance.vision',
+  'wss://stream.binance.com:9443',
+];
+
+const MAX_RECONNECT_ATTEMPTS = 8;
+const BASE_RECONNECT_DELAY = 1000;
+const MAX_RECONNECT_DELAY = 30000;
+
 export class BinanceWebSocketClient {
   private ws: WebSocket | null = null;
   private config: BinanceWebSocketConfig;
-  private baseUrl = 'wss://stream.binance.com:9443';
+  private hostIndex = 0;
   private connectionState: ConnectionState = 'disconnected';
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private reconnectTimeout: NodeJS.Timeout | null = null;
+  private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private isDisconnecting = false;
 
   constructor(config: BinanceWebSocketConfig) {
@@ -23,33 +35,27 @@ export class BinanceWebSocketClient {
 
   connect(): void {
     if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
-      console.log('[BinanceWS] Already connected or connecting');
       return;
     }
+    if (this.config.streams.length === 0) return;
 
     this.isDisconnecting = false;
     this.updateState('connecting');
 
     try {
-      // Build combined stream URL
-      const streamString = this.config.streams.join('/');
-      const url = `${this.baseUrl}/stream?streams=${streamString}`;
+      const url = `${STREAM_HOSTS[this.hostIndex]}/stream?streams=${this.config.streams.join('/')}`;
+      const ws = new WebSocket(url);
+      this.ws = ws;
 
-      console.log('[BinanceWS] Connecting to:', url);
-      this.ws = new WebSocket(url);
-
-      this.ws.onopen = () => {
-        console.log('[BinanceWS] Connected successfully');
+      ws.onopen = () => {
         this.updateState('connected');
         this.reconnectAttempts = 0;
       };
 
-      this.ws.onmessage = (event) => {
+      ws.onmessage = (event) => {
         try {
-          const message = JSON.parse(event.data);
-          this.config.onMessage(message);
-        } catch (error) {
-          console.error('[BinanceWS] Failed to parse message:', error);
+          this.config.onMessage(JSON.parse(event.data));
+        } catch {
           this.config.onError({
             message: 'Failed to parse WebSocket message',
             code: 'PARSE_ERROR',
@@ -58,91 +64,81 @@ export class BinanceWebSocketClient {
         }
       };
 
-      this.ws.onerror = () => {
-        // Only handle errors if not in the middle of disconnecting
-        if (!this.isDisconnecting) {
-          console.error('[BinanceWS] WebSocket error occurred');
-          this.updateState('error');
-          this.config.onError({
-            message: 'WebSocket connection error',
-            code: 'CONNECTION_ERROR',
-            timestamp: Date.now(),
-          });
-        }
-      };
+      // onclose always follows onerror, so reconnection is handled there
+      ws.onerror = () => {};
 
-      this.ws.onclose = (event) => {
-        console.log('[BinanceWS] Connection closed:', event.code, event.reason);
-
-        // Only handle errors if not a clean disconnect
-        if (!this.isDisconnecting && !event.wasClean) {
+      ws.onclose = (event) => {
+        this.ws = null;
+        if (this.isDisconnecting) {
           this.updateState('disconnected');
-          this.config.onError({
-            message: `Connection closed unexpectedly: ${event.reason || 'Unknown reason'}`,
-            code: `CLOSE_${event.code}`,
-            timestamp: Date.now(),
-          });
-        } else {
-          this.updateState('disconnected');
+          return;
         }
+        this.scheduleReconnect(event.code);
       };
     } catch (error) {
-      console.error('[BinanceWS] Failed to create WebSocket:', error);
-      this.updateState('error');
       this.config.onError({
         message: error instanceof Error ? error.message : 'Failed to create WebSocket',
         code: 'CREATE_ERROR',
         timestamp: Date.now(),
       });
+      this.scheduleReconnect();
     }
   }
 
+  private scheduleReconnect(code?: number): void {
+    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      this.updateState('error');
+      this.config.onError({
+        message: 'Live stream unavailable. Prices will refresh periodically instead.',
+        code: code ? `CLOSE_${code}` : 'CONNECTION_ERROR',
+        timestamp: Date.now(),
+      });
+      return;
+    }
+
+    // Alternate hosts so a blocked or failing host doesn't keep us offline
+    this.hostIndex = (this.hostIndex + 1) % STREAM_HOSTS.length;
+    const delay = Math.min(BASE_RECONNECT_DELAY * 2 ** this.reconnectAttempts, MAX_RECONNECT_DELAY);
+    this.reconnectAttempts += 1;
+    this.updateState('connecting');
+
+    this.reconnectTimeout = setTimeout(() => {
+      this.reconnectTimeout = null;
+      this.connect();
+    }, delay);
+  }
+
   disconnect(): void {
+    this.isDisconnecting = true;
+
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
 
     if (this.ws) {
-      this.isDisconnecting = true;
-      this.updateState('disconnecting');
-
-      // Remove event listeners before closing to prevent errors
       this.ws.onopen = null;
       this.ws.onmessage = null;
       this.ws.onerror = null;
       this.ws.onclose = null;
 
-      // Close connection if still open
       if (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) {
         this.ws.close(1000, 'Client disconnect');
       }
-
       this.ws = null;
-      this.updateState('disconnected');
     }
+    this.updateState('disconnected');
   }
 
   reconnect(): void {
-    console.log('[BinanceWS] Manual reconnect triggered');
     this.disconnect();
     this.reconnectAttempts = 0;
-
-    // Small delay before reconnecting
-    setTimeout(() => {
-      this.connect();
-    }, 500);
+    setTimeout(() => this.connect(), 300);
   }
 
   updateStreams(streams: string[]): void {
-    console.log('[BinanceWS] Updating streams:', streams);
     this.config.streams = streams;
-
-    // Reconnect with new streams
-    this.disconnect();
-    setTimeout(() => {
-      this.connect();
-    }, 500);
+    this.reconnect();
   }
 
   getState(): ConnectionState {

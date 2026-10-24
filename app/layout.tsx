@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "@/components/Providers";
 import "./globals.css";
@@ -14,8 +14,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Crypto AI Analysis Platform",
-  description: "Real-time cryptocurrency analysis powered by Claude AI and technical indicators",
+  title: "Crypto AI · Live crypto charts and AI analysis",
+  description: "Live cryptocurrency prices, charts and technical indicators from free public market data, with AI analysis by Claude or Gemini",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#07090e",
 };
 
 export default function RootLayout({
@@ -24,7 +28,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

@@ -138,10 +138,10 @@ function MACDCardComponent({ data, history }: MACDCardProps) {
   }, [history]);
 
   return (
-    <div className={`rounded-lg border border-gray-800 bg-gradient-to-br ${isBullish ? 'from-green-500/20 to-transparent' : 'from-red-500/20 to-transparent'} bg-gray-900 p-6 shadow-lg`}>
+    <div className={`card card-pad relative overflow-hidden bg-gradient-to-br ${isBullish ? 'from-green-500/10 to-transparent' : 'from-red-500/10 to-transparent'}`}>
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-lg font-bold text-white">MACD</h3>
-        <span className={`rounded-full px-3 py-1 text-sm font-semibold whitespace-nowrap ${isBullish ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
+        <h3 className="text-sm font-semibold text-white">MACD</h3>
+        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${isBullish ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
           {isBullish ? 'Bullish ↑' : 'Bearish ↓'}
         </span>
       </div>
@@ -149,15 +149,15 @@ function MACDCardComponent({ data, history }: MACDCardProps) {
       <div className="mb-4 grid grid-cols-3 gap-4">
         <div>
           <span className="text-xs font-medium text-gray-400">MACD</span>
-          <div className="text-sm font-bold text-blue-400">{data.macd.toFixed(2)}</div>
+          <div className="num text-sm font-semibold text-blue-400">{data.macd.toFixed(2)}</div>
         </div>
         <div>
           <span className="text-xs font-medium text-gray-400">Signal</span>
-          <div className="text-sm font-bold text-amber-400">{data.signal.toFixed(2)}</div>
+          <div className="num text-sm font-semibold text-amber-400">{data.signal.toFixed(2)}</div>
         </div>
         <div>
           <span className="text-xs font-medium text-gray-400">Histogram</span>
-          <div className={`text-sm font-bold ${isBullish ? 'text-green-500' : 'text-red-500'}`}>
+          <div className={`num text-sm font-semibold ${isBullish ? 'text-green-500' : 'text-red-500'}`}>
             {data.histogram > 0 && '+'}{data.histogram.toFixed(2)}
           </div>
         </div>

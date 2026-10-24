@@ -1,139 +1,193 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import type { BinanceSymbolInfo } from '@/lib/services/binance';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Check, Plus, Search, X } from 'lucide-react';
+import { useMarketPairs } from '@/hooks/useMarketPairs';
+import { CoinLogo } from '@/components/CoinLogo';
+import { cn, formatCurrency, formatLargeNumber, formatPercentage } from '@/lib/utils';
 
 interface TradingPairSearchProps {
+  /** Called with the chosen pair; the dashboard adds it to the watchlist and opens it. */
   onSelect: (symbol: string) => void;
   onClose: () => void;
+  /** Pairs already on the watchlist; picking one just opens it. */
   excludedSymbols: string[];
+  isWatchlistFull?: boolean;
 }
 
-export function TradingPairSearch({ onSelect, onClose, excludedSymbols }: TradingPairSearchProps) {
+const MAX_RESULTS = 60;
+
+export function TradingPairSearch({ onSelect, onClose, excludedSymbols, isWatchlistFull }: TradingPairSearchProps) {
+  const { pairs, loading, error } = useMarketPairs();
   const [searchTerm, setSearchTerm] = useState('');
-  const [pairs, setPairs] = useState<BinanceSymbolInfo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [active, setActive] = useState(0);
+  const listRef = useRef<HTMLDivElement>(null);
 
-  // Fetch available trading pairs
+  const results = useMemo(() => {
+    const q = searchTerm.trim().toUpperCase();
+    if (!q) return pairs.slice(0, MAX_RESULTS);
+
+    // Exact ticker first, then prefix matches, then name/substring matches
+    const score = (p: (typeof pairs)[number]) => {
+      const name = (p.name ?? '').toUpperCase();
+      if (p.baseAsset === q) return 0;
+      if (p.baseAsset.startsWith(q)) return 1;
+      if (name.startsWith(q)) return 2;
+      if (p.baseAsset.includes(q) || name.includes(q)) return 3;
+      return -1;
+    };
+    return pairs
+      .map((p) => ({ p, s: score(p) }))
+      .filter((x) => x.s >= 0)
+      .sort((a, b) => a.s - b.s || b.p.quoteVolume - a.p.quoteVolume)
+      .slice(0, MAX_RESULTS)
+      .map((x) => x.p);
+  }, [pairs, searchTerm]);
+
   useEffect(() => {
-    async function fetchPairs() {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/crypto/trading-pairs');
-        if (!response.ok) {
-          throw new Error('Failed to fetch trading pairs');
-        }
-        const data = await response.json();
-        setPairs(data.pairs || []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load pairs');
-      } finally {
-        setLoading(false);
-      }
-    }
+    listRef.current?.querySelector<HTMLElement>(`[data-index="${active}"]`)?.scrollIntoView({ block: 'nearest' });
+  }, [active]);
 
-    fetchPairs();
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
   }, []);
 
-  // Filter pairs based on search term and exclude already added symbols
-  const filteredPairs = useMemo(() => {
-    if (!searchTerm) {
-      return pairs.filter((pair) => !excludedSymbols.includes(pair.symbol)).slice(0, 50);
-    }
-
-    const search = searchTerm.toUpperCase();
-    return pairs
-      .filter((pair) => {
-        if (excludedSymbols.includes(pair.symbol)) return false;
-        return (
-          pair.symbol.includes(search) ||
-          pair.baseAsset.includes(search)
-        );
-      })
-      .slice(0, 50);
-  }, [pairs, searchTerm, excludedSymbols]);
-
-  const handleSelect = (symbol: string) => {
+  const choose = (symbol: string) => {
+    const inList = excludedSymbols.includes(symbol);
+    if (!inList && isWatchlistFull) return;
     onSelect(symbol);
     onClose();
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActive((i) => Math.min(i + 1, results.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActive((i) => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter' && results[active]) {
+      e.preventDefault();
+      choose(results[active].symbol);
+    } else if (e.key === 'Escape') {
+      onClose();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-xl bg-gray-900 border border-gray-800 shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-800 p-4">
-          <h2 className="text-lg font-semibold text-white">Add Cryptocurrency</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-3 pt-[10vh] backdrop-blur-sm animate-fade-in sm:p-6 sm:pt-[12vh]"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Search coins"
+    >
+      <div className="card flex max-h-[75vh] w-full max-w-xl flex-col overflow-hidden bg-surface animate-pop-in">
+        <div className="flex items-center gap-3 border-b border-line px-4">
+          <Search className="h-4 w-4 shrink-0 text-gray-500" />
+          <input
+            type="text"
+            placeholder="Search by ticker or name, e.g. BTC or Solana"
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setActive(0);
+            }}
+            onKeyDown={handleKeyDown}
+            className="h-14 flex-1 bg-transparent text-[15px] text-white placeholder-gray-500 focus:outline-none"
+            autoFocus
+            role="combobox"
+            aria-expanded="true"
+            aria-controls="pair-results"
+            aria-activedescendant={results[active] ? `pair-${results[active].symbol}` : undefined}
+          />
+          <button onClick={onClose} className="btn btn-ghost h-8 w-8 p-0" aria-label="Close search">
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Search Input */}
-        <div className="p-4">
-          <input
-            type="text"
-            placeholder="Search by symbol or name (e.g., BTC, Bitcoin)"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-3 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            autoFocus
-          />
-        </div>
+        {isWatchlistFull && (
+          <div className="border-b border-line bg-yellow-500/5 px-4 py-2 text-xs text-yellow-400">
+            Your watchlist is full (10 coins). Remove one to add another; you can still open coins already on it.
+          </div>
+        )}
 
-        {/* Results List */}
-        <div className="max-h-96 overflow-y-auto">
+        <div ref={listRef} id="pair-results" role="listbox" className="flex-1 overflow-y-auto p-1.5">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-700 border-t-blue-500" />
+            <div className="space-y-1.5 p-1.5">
+              {[...Array(6)].map((_, i) => <div key={i} className="h-12 skeleton" />)}
             </div>
           ) : error ? (
-            <div className="p-4 text-center text-red-400">
-              <p>{error}</p>
-            </div>
-          ) : filteredPairs.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              <p>No trading pairs found</p>
-              {searchTerm && <p className="mt-1 text-sm">Try a different search term</p>}
+            <p className="p-6 text-center text-sm text-red-400">{error}</p>
+          ) : results.length === 0 ? (
+            <div className="p-10 text-center">
+              <p className="text-sm text-gray-300">No coins match “{searchTerm}”</p>
+              <p className="mt-1 text-xs text-gray-500">Only pairs quoted in USDT are listed.</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-800">
-              {filteredPairs.map((pair) => (
-                <button
-                  key={pair.symbol}
-                  onClick={() => handleSelect(pair.symbol)}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-800/50 transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-white">{pair.symbol}</div>
-                      <div className="text-sm text-gray-400">
-                        {pair.baseAsset} / {pair.quoteAsset}
+            <>
+              {!searchTerm && <div className="eyebrow px-3 pb-1 pt-2">Most traded today</div>}
+              {results.map((pair, index) => {
+                const inList = excludedSymbols.includes(pair.symbol);
+                const disabled = !inList && isWatchlistFull;
+                const isUp = pair.changePercent24h >= 0;
+                return (
+                  <button
+                    key={pair.symbol}
+                    id={`pair-${pair.symbol}`}
+                    data-index={index}
+                    role="option"
+                    aria-selected={index === active}
+                    aria-disabled={disabled}
+                    onMouseMove={() => setActive(index)}
+                    onClick={() => choose(pair.symbol)}
+                    className={cn(
+                      'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition cursor-pointer',
+                      index === active && 'bg-surface-3',
+                      disabled && 'opacity-50 cursor-not-allowed'
+                    )}
+                  >
+                    <CoinLogo src={pair.image} symbol={pair.symbol} size={30} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-white">{pair.baseAsset}</span>
+                        <span className="truncate text-xs text-gray-500">{pair.name ?? `${pair.baseAsset}/USDT`}</span>
+                      </div>
+                      <div className="text-[11px] text-gray-500 num">Vol {formatLargeNumber(pair.quoteVolume)}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="num text-sm text-gray-100">{formatCurrency(pair.price)}</div>
+                      <div className={cn('num text-xs', isUp ? 'text-up' : 'text-down')}>
+                        {formatPercentage(pair.changePercent24h)}
                       </div>
                     </div>
-                    <div className="text-gray-500">
-                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
+                    <span
+                      className={cn(
+                        'ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border',
+                        inList ? 'border-brand/40 bg-brand/15 text-blue-300' : 'border-line-strong text-gray-400'
+                      )}
+                      title={inList ? 'On your watchlist' : 'Add to watchlist'}
+                    >
+                      {inList ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                    </span>
+                  </button>
+                );
+              })}
+            </>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="border-t border-gray-800 p-4">
-          <p className="text-xs text-gray-500 text-center">
-            Showing {filteredPairs.length} of {pairs.length - excludedSymbols.length} available pairs
-          </p>
+        <div className="flex items-center justify-between gap-3 border-t border-line px-4 py-2.5 text-[11px] text-gray-500">
+          <span className="hidden items-center gap-1.5 sm:flex">
+            <span className="kbd">↑</span><span className="kbd">↓</span> navigate
+            <span className="kbd ml-2">↵</span> select
+            <span className="kbd ml-2">esc</span> close
+          </span>
+          <span>{pairs.length > 0 ? `${pairs.length} USDT pairs · Binance & CoinGecko` : ''}</span>
         </div>
       </div>
     </div>

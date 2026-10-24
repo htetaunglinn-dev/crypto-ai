@@ -4,11 +4,14 @@ import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Logo } from '@/components/Header';
+import { useAppConfig } from '@/hooks/useAppConfig';
 
 export default function SignInPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const config = useAppConfig();
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -49,25 +52,35 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-black p-4">
-      <div className="w-full max-w-md">
-        <div className="rounded-lg border border-gray-800 bg-gray-900 p-8">
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="w-full max-w-md animate-pop-in">
+        <div className="mb-6 flex justify-center">
+          <Logo />
+        </div>
+        <div className="card p-6 sm:p-8">
           <div className="mb-8 text-center">
-            <h1 className="text-3xl font-bold text-white">Sign In</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-white">Sign In</h1>
             <p className="mt-2 text-sm text-gray-400">
               Welcome back to Crypto AI Analysis
             </p>
           </div>
 
           {error && (
-            <div className="mb-4 rounded-md border border-red-500/50 bg-red-500/10 p-3">
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2.5">
               <p className="text-sm text-red-500">{error}</p>
+            </div>
+          )}
+
+          {config && !config.database && (
+            <div className="mb-4 rounded-xl border border-yellow-500/30 bg-yellow-500/5 px-3.5 py-2.5 text-sm text-yellow-300">
+              Accounts are off because no database is configured. Add <code className="text-yellow-200">MONGODB_URI</code> to{' '}
+              <code className="text-yellow-200">.env.local</code> to enable sign-in and AI analysis. Live prices and charts work without it.
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-300">
                 Email
               </label>
               <input
@@ -76,13 +89,13 @@ export default function SignInPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full rounded-md border border-gray-700 bg-gray-800 px-4 py-2 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="input"
                 placeholder="you@example.com"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-300">
                 Password
               </label>
               <input
@@ -91,7 +104,7 @@ export default function SignInPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full rounded-md border border-gray-700 bg-gray-800 px-4 py-2 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="input"
                 placeholder="••••••••"
               />
             </div>
@@ -99,23 +112,26 @@ export default function SignInPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full rounded-md bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="btn btn-primary h-11 w-full"
             >
               {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
 
+          {config && (config.oauth.google || config.oauth.github) && (
+            <>
           <div className="my-6 flex items-center">
-            <div className="flex-1 border-t border-gray-700"></div>
+            <div className="flex-1 border-t border-line"></div>
             <span className="px-4 text-sm text-gray-500">or continue with</span>
-            <div className="flex-1 border-t border-gray-700"></div>
+            <div className="flex-1 border-t border-line"></div>
           </div>
 
           <div className="space-y-3">
+            {config.oauth.google && (
             <button
               onClick={() => handleOAuthSignIn('google')}
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-3 rounded-md border border-gray-700 bg-gray-800 px-4 py-2 font-medium text-white transition hover:bg-gray-750 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="btn btn-secondary h-11 w-full"
             >
               <svg className="h-5 w-5" viewBox="0 0 24 24">
                 <path
@@ -137,11 +153,13 @@ export default function SignInPage() {
               </svg>
               Continue with Google
             </button>
+            )}
 
+            {config.oauth.github && (
             <button
               onClick={() => handleOAuthSignIn('github')}
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-3 rounded-md border border-gray-700 bg-gray-800 px-4 py-2 font-medium text-white transition hover:bg-gray-750 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="btn btn-secondary h-11 w-full"
             >
               <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
                 <path
@@ -152,7 +170,10 @@ export default function SignInPage() {
               </svg>
               Continue with GitHub
             </button>
+            )}
           </div>
+            </>
+          )}
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-400">

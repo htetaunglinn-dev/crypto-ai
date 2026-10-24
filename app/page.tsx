@@ -2,88 +2,110 @@
 
 import { useState, useEffect, useCallback, startTransition } from 'react';
 import { useSession } from 'next-auth/react';
-import Link from 'next/link';
 import axios from 'axios';
-import type { CryptoPrice, AllIndicators, ClaudeAnalysis, TradingPair, HistoricalData, OHLCV, TimeInterval } from '@/types';
+import { Plus, RefreshCw, WifiOff } from 'lucide-react';
+import type { ClaudeAnalysis, TimeInterval } from '@/types';
 import type { FearGreedData, FearGreedHistoryPoint, FearGreedResponse } from '@/types/fear-greed';
 import { Header } from '@/components/Header';
+import { MarketStatsBar } from '@/components/MarketStatsBar';
 import { PriceCard } from '@/components/PriceCard';
+import { PairHeader } from '@/components/PairHeader';
+import { IndicatorSummary } from '@/components/indicators/IndicatorSummary';
 import { RSICard, MACDCard, BollingerBandsCard, EMACard } from '@/components/indicators';
 import { ClaudeInsightsPanel } from '@/components/ai';
 import { CandlestickChart } from '@/components/charts';
 import { TradingPairSearch } from '@/components/TradingPairSearch';
-import { useCryptoCompareTickerStream } from '@/hooks/useCryptoCompareTickerStream';
-import { useCryptoCompareKline } from '@/hooks/useCryptoCompareKline';
+import { useLiveTickers } from '@/hooks/useLiveTickers';
+import { useLiveKlines } from '@/hooks/useLiveKlines';
+import { useMarketPairs } from '@/hooks/useMarketPairs';
 import { useIndicatorHistory } from '@/hooks/useIndicatorHistory';
-import { loadWatchlist, addToWatchlist, removeFromWatchlist, isWatchlistFull, isWatchlistAtMinimum } from '@/lib/storage/watchlist';
+import { loadWatchlist, addToWatchlist, removeFromWatchlist, getWatchlistLimits } from '@/lib/storage/watchlist';
+
+const INTERVALS: { value: TimeInterval; label: string }[] = [
+  { value: '15m', label: '15m' },
+  { value: '1h', label: '1H' },
+  { value: '4h', label: '4H' },
+  { value: '1d', label: '1D' },
+  { value: '1w', label: '1W' },
+];
+
+const SELECTED_KEY = 'crypto-selected';
+const INTERVAL_KEY = 'crypto-interval';
+
+function readPref(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writePref(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Storage can be unavailable (private mode); preferences just won't persist
+  }
+}
 
 export default function Home() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const [watchlistPairs, setWatchlistPairs] = useState<string[]>([]);
-  const [selectedSymbol, setSelectedSymbol] = useState<TradingPair>('BTCUSDT');
+  const [selectedSymbol, setSelectedSymbol] = useState<string>('BTCUSDT');
   const [selectedInterval, setSelectedInterval] = useState<TimeInterval>('1d');
-  const [initialHistoricalData, setInitialHistoricalData] = useState<{ symbol: string, data: OHLCV[] } | null>(null);
   const [analysis, setAnalysis] = useState<ClaudeAnalysis | null>(null);
-  const [isLoadingChart, setIsLoadingChart] = useState(false);
   const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [showSearchDialog, setShowSearchDialog] = useState(false);
   const [fearGreedData, setFearGreedData] = useState<FearGreedData | null>(null);
   const [fearGreedHistory, setFearGreedHistory] = useState<FearGreedHistoryPoint[]>([]);
 
+  const { max: maxWatchlist } = getWatchlistLimits();
+
   useEffect(() => {
     const pairs = loadWatchlist();
     setWatchlistPairs(pairs);
-    if (pairs.length > 0) {
-      setSelectedSymbol(pairs[0] as TradingPair);
+    const saved = readPref(SELECTED_KEY);
+    setSelectedSymbol(saved && pairs.includes(saved) ? saved : pairs[0]);
+    const savedInterval = readPref(INTERVAL_KEY) as TimeInterval | null;
+    if (savedInterval && INTERVALS.some((i) => i.value === savedInterval)) {
+      setSelectedInterval(savedInterval);
     }
   }, []);
 
-  // WebSocket hooks for real-time data
+  const { bySymbol } = useMarketPairs();
+
   const {
     prices,
     isConnected: isPricesConnected,
-    error: pricesError,
+    connectionState: pricesState,
     reconnect: reconnectPrices,
-  } = useCryptoCompareTickerStream(watchlistPairs as TradingPair[]);
+  } = useLiveTickers(watchlistPairs);
 
   const {
     ohlcvData,
+    closedData,
     indicators,
-    isConnected: isChartConnected,
+    isLoading: isLoadingChart,
     error: chartError,
-    reconnect: reconnectChart,
-  } = useCryptoCompareKline(selectedSymbol, selectedInterval, initialHistoricalData);
+    reload: reloadChart,
+  } = useLiveKlines(selectedSymbol, selectedInterval);
 
-  const indicatorHistory = useIndicatorHistory(ohlcvData || [], indicators);
+  const indicatorHistory = useIndicatorHistory(closedData, indicators);
 
-  // Fetch initial historical data via REST API
-  const fetchHistoricalData = useCallback(async (symbol: TradingPair, interval: TimeInterval) => {
-    try {
-      setIsLoadingChart(true);
-      setInitialHistoricalData(null); // Clear previous data
-      const response = await fetch(`/api/crypto/historical?symbol=${symbol}&interval=${interval}&limit=200`);
-      const data = await response.json();
-
-      if (data.success) {
-        setInitialHistoricalData({ symbol, data: data.data.data });
-      } else {
-        setError(data.error || 'Failed to fetch historical data');
-      }
-    } catch (err) {
-      console.error('Error fetching historical data:', err);
-      setError('Failed to fetch historical data');
-    } finally {
-      setIsLoadingChart(false);
-    }
+  const selectSymbol = useCallback((symbol: string) => {
+    setSelectedSymbol(symbol);
+    writePref(SELECTED_KEY, symbol);
   }, []);
 
-  const fetchAnalysis = useCallback(async (symbol: TradingPair, forceRefresh = false) => {
-    if (status !== 'authenticated') {
-      setAnalysisError('Sign in to use AI analysis features');
-      return;
-    }
+  const selectInterval = useCallback((interval: TimeInterval) => {
+    setSelectedInterval(interval);
+    writePref(INTERVAL_KEY, interval);
+  }, []);
+
+  const fetchAnalysis = useCallback(async (symbol: string, forceRefresh = false) => {
+    if (status !== 'authenticated') return;
 
     startTransition(() => {
       setAnalysisError(null);
@@ -108,8 +130,7 @@ export default function Home() {
     } catch (err) {
       startTransition(() => {
         if (axios.isAxiosError(err)) {
-          const errorMessage = err.response?.data?.error || err.message || 'Failed to fetch analysis';
-          setAnalysisError(errorMessage);
+          setAnalysisError(err.response?.data?.error || err.message || 'Failed to fetch analysis');
         } else {
           setAnalysisError('Failed to fetch analysis');
         }
@@ -118,310 +139,280 @@ export default function Home() {
     }
   }, [status]);
 
+  // New coin: drop the old coin's analysis and fetch a fresh one
   useEffect(() => {
-    if (selectedSymbol) {
-      fetchHistoricalData(selectedSymbol, selectedInterval);
+    setAnalysis(null);
+    setAnalysisError(null);
+    if (status !== 'authenticated') return;
+    const timer = setTimeout(() => fetchAnalysis(selectedSymbol), 150);
+    return () => clearTimeout(timer);
+  }, [selectedSymbol, fetchAnalysis, status]);
 
-      if (status === 'authenticated') {
-        const timer = setTimeout(() => {
-          fetchAnalysis(selectedSymbol);
-        }, 100);
-
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [selectedSymbol, selectedInterval, fetchHistoricalData, fetchAnalysis, status]);
-
-  // Update error state when WebSocket errors occur
   useEffect(() => {
-    if (pricesError) {
-      setError(`Price connection error: ${pricesError.message}`);
-    } else if (chartError) {
-      setError(`Chart connection error: ${chartError.message}`);
-    } else {
-      setError(null);
-    }
-  }, [pricesError, chartError]);
+    fetch('/api/fear-greed')
+      .then((res) => res.json())
+      .then((data: FearGreedResponse) => {
+        if (data.current) {
+          setFearGreedData(data.current);
+          setFearGreedHistory(data.history);
+        }
+      })
+      .catch((err) => console.error('Error fetching Fear & Greed data:', err));
+  }, []);
 
-  // Fetch Fear & Greed Index data
+  // ⌘K / Ctrl+K or "/" opens search
   useEffect(() => {
-    const fetchFearGreed = async () => {
-      try {
-        const response = await fetch('/api/fear-greed');
-        const data: FearGreedResponse = await response.json();
-        setFearGreedData(data.current);
-        setFearGreedHistory(data.history);
-      } catch (err) {
-        console.error('Error fetching Fear & Greed data:', err);
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const typing = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+      if ((e.key === 'k' && (e.metaKey || e.ctrlKey)) || (e.key === '/' && !typing)) {
+        e.preventDefault();
+        setShowSearchDialog(true);
       }
     };
-
-    fetchFearGreed();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const handleAddPair = useCallback((symbol: string) => {
+  useEffect(() => {
+    if (!notice) return;
+    const id = setTimeout(() => setNotice(null), 5000);
+    return () => clearTimeout(id);
+  }, [notice]);
+
+  const handlePickPair = useCallback((symbol: string) => {
     try {
-      const updatedPairs = addToWatchlist(symbol);
-      if (updatedPairs) {
-        setWatchlistPairs(updatedPairs);
+      if (!watchlistPairs.includes(symbol)) {
+        const updatedPairs = addToWatchlist(symbol);
+        if (updatedPairs) setWatchlistPairs(updatedPairs);
       }
+      selectSymbol(symbol);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add pair to watchlist');
+      setNotice(err instanceof Error ? err.message : 'Failed to add pair to watchlist');
     }
-  }, []);
+  }, [watchlistPairs, selectSymbol]);
 
   const handleRemovePair = useCallback((symbol: string) => {
     try {
       const updatedPairs = removeFromWatchlist(symbol);
       if (updatedPairs) {
         setWatchlistPairs(updatedPairs);
-
         if (symbol === selectedSymbol && updatedPairs.length > 0) {
-          setSelectedSymbol(updatedPairs[0] as TradingPair);
+          selectSymbol(updatedPairs[0]);
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to remove pair from watchlist');
+      setNotice(err instanceof Error ? err.message : 'Failed to remove pair from watchlist');
     }
-  }, [selectedSymbol]);
+  }, [selectedSymbol, selectSymbol]);
 
   const currentPrice = prices.find((p) => p.symbol === selectedSymbol);
+  const selectedMeta = bySymbol.get(selectedSymbol);
+  const lastClose = ohlcvData.length > 0 ? ohlcvData[ohlcvData.length - 1].close : 0;
+  const livePrice = currentPrice?.price || lastClose;
+  const streamDown = pricesState === 'error';
+  const watchlistFull = watchlistPairs.length >= maxWatchlist;
+
+  // Placeholder rows keep the watchlist stable while prices load
+  const watchlistRows = watchlistPairs.map((symbol) =>
+    prices.find((p) => p.symbol === symbol) ?? {
+      symbol,
+      price: 0,
+      change24h: 0,
+      changePercent24h: 0,
+      high24h: 0,
+      low24h: 0,
+      volume24h: 0,
+      lastUpdated: new Date(),
+    }
+  );
 
   return (
-    <div className="h-screen bg-black flex flex-col overflow-hidden">
-      <Header />
+    <div className="flex min-h-screen flex-col">
+      <Header onOpenSearch={() => setShowSearchDialog(true)} isLive={isPricesConnected} />
+      <MarketStatsBar fearGreed={fearGreedData} />
 
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="mx-auto max-w-7xl pb-4">
-          {error && (
-            <div className="mb-4 rounded-lg border border-red-500/50 bg-red-500/10 p-4">
-              <p className="text-sm text-red-500">{error}</p>
-              {(pricesError || chartError) && (
-                <button
-                  onClick={() => {
-                    if (pricesError) reconnectPrices();
-                    if (chartError) reconnectChart();
-                  }}
-                  className="mt-2 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
-                >
-                  Reconnect
-                </button>
-              )}
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-            {/* Watchlist Sidebar */}
-            <div className="lg:col-span-2">
-              <div className="space-y-2">
-                <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-gray-400">Watchlist</h2>
-                  {isPricesConnected && (
-                    <div className="flex items-center gap-1">
-                      <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                      <span className="text-xs text-green-500">Live</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Search Input */}
-                <div className="mb-3">
-                  <button
-                    onClick={() => setShowSearchDialog(true)}
-                    disabled={watchlistPairs.length >= 10}
-                    className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2.5 text-left text-sm text-gray-500 hover:border-gray-600 hover:bg-gray-800/80 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    <span>
-                      {watchlistPairs.length >= 10 ? 'Watchlist full (10/10)' : 'Search to add pairs...'}
-                    </span>
-                  </button>
-                </div>
-                {prices.length === 0 ? (
-                  <div className="space-y-2">
-                    {[...Array(5)].map((_, i) => (
-                      <div
-                        key={i}
-                        className="h-24 animate-pulse rounded-lg bg-gray-800"
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  prices.map((price) => (
-                    <PriceCard
-                      key={price.symbol}
-                      price={price}
-                      isSelected={price.symbol === selectedSymbol}
-                      onClick={() => setSelectedSymbol(price.symbol as TradingPair)}
-                      onRemove={handleRemovePair}
-                      canRemove={watchlistPairs.length > 1}
-                    />
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Main Content */}
-            <div className="lg:col-span-6">
-              <div className="space-y-4">
-                {/* Price Header & Chart */}
-                <div className="rounded-lg border border-gray-800 bg-gray-900 p-6">
-                  <div className="mb-4 flex items-center justify-between">
-                    <div>
-                      <h2 className="text-2xl font-bold text-white">
-                        {selectedSymbol.replace('USDT', '')}/USDT
-                      </h2>
-                      {currentPrice && (
-                        <div className="mt-1 flex items-baseline gap-3">
-                          <span className="text-3xl font-bold text-white">
-                            ${currentPrice.price.toFixed(2)}
-                          </span>
-                          <span
-                            className={`text-sm font-medium ${currentPrice.changePercent24h >= 0
-                              ? 'text-green-500'
-                              : 'text-red-500'
-                              }`}
-                          >
-                            {currentPrice.changePercent24h >= 0 ? '+' : ''}
-                            {currentPrice.changePercent24h.toFixed(2)}%
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      {(['1h', '4h', '1d', '1w'] as const).map((interval) => (
-                        <button
-                          key={interval}
-                          onClick={() => setSelectedInterval(interval)}
-                          className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${selectedInterval === interval
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
-                            }`}
-                        >
-                          {interval.toUpperCase()}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {isLoadingChart ? (
-                    <div className="h-96 animate-pulse rounded-md bg-gray-800" />
-                  ) : ohlcvData && ohlcvData.length > 0 ? (
-                    <CandlestickChart key={selectedSymbol} data={ohlcvData} symbol={selectedSymbol} />
-                  ) : (
-                    <div className="h-96 flex items-center justify-center rounded-md bg-gray-800">
-                      <p className="text-sm text-gray-400">No chart data available</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Technical Indicators */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {!indicators ? (
-                    <>
-                      {[...Array(4)].map((_, i) => (
-                        <div
-                          key={i}
-                          className="h-48 animate-pulse rounded-lg bg-gray-800"
-                        />
-                      ))}
-                    </>
-                  ) : (
-                    <>
-                      <RSICard
-                        data={indicators.rsi}
-                        history={indicatorHistory.rsiHistory}
-                      />
-                      <MACDCard
-                        data={indicators.macd}
-                        history={indicatorHistory.macdHistory}
-                      />
-                      <BollingerBandsCard
-                        data={indicators.bollingerBands}
-                        currentPrice={currentPrice?.price || 0}
-                        history={indicatorHistory.bbHistory}
-                      />
-                      <EMACard
-                        ema={indicators.ema}
-                        currentPrice={currentPrice?.price || 0}
-                      />
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* AI Insights Sidebar */}
-            <div className="lg:col-span-4">
-              {status === 'unauthenticated' && (
-                <div className="mb-4 rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-4">
-                  <p className="text-sm font-medium text-yellow-500 mb-2">
-                    Sign in to unlock AI features
-                  </p>
-                  <p className="text-xs text-gray-400 mb-3">
-                    Get AI-powered market analysis, pattern recognition, and risk assessment.
-                  </p>
-                  <Link
-                    href="/auth/signin"
-                    className="inline-block rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-                  >
-                    Sign In
-                  </Link>
-                </div>
-              )}
-
-              {analysisError && status === 'authenticated' && (
-                <div className="mb-4 rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-4">
-                  <p className="text-sm font-medium text-yellow-500 mb-2">
-                    {analysisError}
-                  </p>
-                  {analysisError.includes('API key') && (
-                    <>
-                      <p className="text-xs text-gray-400 mb-3">
-                        Add your Anthropic API key to enable AI analysis.
-                      </p>
-                      <Link
-                        href="/settings"
-                        className="inline-block rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-                      >
-                        Add API Key
-                      </Link>
-                    </>
-                  )}
-                </div>
-              )}
-
-              <ClaudeInsightsPanel
-                analysis={analysis}
-                isLoading={isLoadingAnalysis}
-                onRefresh={() => fetchAnalysis(selectedSymbol, true)}
-                fearGreedData={fearGreedData}
-                fearGreedHistory={fearGreedHistory}
-              />
-            </div>
+      <main className="mx-auto w-full max-w-[1600px] flex-1 px-3 py-4 sm:px-6 sm:py-6">
+        {(notice || streamDown) && (
+          <div className="mb-4 flex items-center gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/5 px-4 py-2.5 text-sm text-yellow-300 animate-fade-in">
+            {streamDown && <WifiOff className="h-4 w-4 shrink-0" />}
+            <span className="flex-1">
+              {notice ?? 'Live stream unavailable. Prices refresh every 15 seconds instead.'}
+            </span>
+            {streamDown && !notice && (
+              <button onClick={reconnectPrices} className="btn btn-secondary h-8 px-3 text-xs">
+                <RefreshCw className="h-3.5 w-3.5" /> Retry
+              </button>
+            )}
           </div>
-        </div>
-      </div>
+        )}
 
-      <footer className="border-t border-gray-800 bg-black py-4">
-        <div className="mx-auto max-w-7xl px-4 text-center">
-          <p className="text-xs text-gray-500">
-            Data provided by CryptoCompare API • AI Analysis by {analysis?.aiProvider === 'gemini' ? 'Gemini' : 'Claude'} • Built with Next.js
+        {/* Mobile watchlist */}
+        <div className="-mx-3 mb-4 flex gap-2 overflow-x-auto px-3 pb-1 lg:hidden [&::-webkit-scrollbar]:hidden">
+          {watchlistRows.map((price) => (
+            <PriceCard
+              key={price.symbol}
+              variant="chip"
+              price={price}
+              image={bySymbol.get(price.symbol)?.image}
+              isSelected={price.symbol === selectedSymbol}
+              onClick={() => selectSymbol(price.symbol)}
+            />
+          ))}
+          <button
+            onClick={() => setShowSearchDialog(true)}
+            className="flex shrink-0 items-center gap-1 rounded-xl border border-dashed border-line-strong px-3 text-xs font-medium text-gray-400 cursor-pointer"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[272px_minmax(0,1fr)_380px] 2xl:grid-cols-[288px_minmax(0,1fr)_400px]">
+          {/* Watchlist */}
+          <aside className="card hidden p-2 lg:sticky lg:top-20 lg:col-start-1 lg:row-span-3 lg:row-start-1 lg:block xl:row-span-2">
+            <div className="flex items-center justify-between px-2 pb-2 pt-1.5">
+              <h2 className="eyebrow">Watchlist</h2>
+              <span className="text-[11px] text-gray-500 num">{watchlistPairs.length}/{maxWatchlist}</span>
+            </div>
+            <div className="max-h-[calc(100vh-14rem)] space-y-0.5 overflow-y-auto overflow-x-hidden">
+              {watchlistRows.map((price) => {
+                const meta = bySymbol.get(price.symbol);
+                return (
+                  <PriceCard
+                    key={price.symbol}
+                    price={price}
+                    name={meta?.name}
+                    image={meta?.image}
+                    isSelected={price.symbol === selectedSymbol}
+                    onClick={() => selectSymbol(price.symbol)}
+                    onRemove={handleRemovePair}
+                    canRemove={watchlistPairs.length > 1}
+                  />
+                );
+              })}
+            </div>
+            <button
+              onClick={() => setShowSearchDialog(true)}
+              disabled={watchlistFull}
+              className="btn mt-2 w-full border border-dashed border-line-strong text-gray-400 hover:border-brand/50 hover:text-white"
+            >
+              <Plus className="h-4 w-4" />
+              {watchlistFull ? 'Watchlist full' : 'Add coin'}
+            </button>
+          </aside>
+
+          {/* Price + chart */}
+          <section className="card card-pad lg:col-start-2 lg:row-start-1">
+            <PairHeader
+              symbol={selectedSymbol}
+              price={currentPrice}
+              name={selectedMeta?.name}
+              image={selectedMeta?.image}
+              rank={selectedMeta?.marketCapRank}
+            />
+
+            <div className="mb-2 mt-5 flex items-center justify-between gap-3">
+              <div className="segmented" role="tablist" aria-label="Chart interval">
+                {INTERVALS.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    role="tab"
+                    aria-selected={selectedInterval === value}
+                    data-active={selectedInterval === value}
+                    onClick={() => selectInterval(value)}
+                    className="segmented-item"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <span className="hidden text-[11px] text-gray-500 sm:inline">Binance spot · USDT</span>
+            </div>
+
+            {isLoadingChart && ohlcvData.length === 0 ? (
+              <div className="h-[340px] skeleton sm:h-[420px]" />
+            ) : chartError && ohlcvData.length === 0 ? (
+              <div className="flex h-[340px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-line-strong sm:h-[420px]">
+                <p className="text-sm text-gray-400">{chartError}</p>
+                <button onClick={reloadChart} className="btn btn-secondary h-8 text-xs">
+                  <RefreshCw className="h-3.5 w-3.5" /> Try again
+                </button>
+              </div>
+            ) : (
+              <CandlestickChart key={`${selectedSymbol}-${selectedInterval}`} data={ohlcvData} symbol={selectedSymbol} />
+            )}
+          </section>
+
+          {/* AI insights */}
+          <aside className="lg:col-start-2 lg:row-start-2 xl:col-start-3 xl:row-span-2 xl:row-start-1">
+            <ClaudeInsightsPanel
+              authStatus={status}
+              analysis={analysis}
+              isLoading={isLoadingAnalysis}
+              error={analysisError}
+              onRefresh={() => fetchAnalysis(selectedSymbol, true)}
+              fearGreedData={fearGreedData}
+              fearGreedHistory={fearGreedHistory}
+            />
+          </aside>
+
+          {/* Technical indicators */}
+          <section className="lg:col-start-2 lg:row-start-3 xl:row-start-2">
+            <div className="mb-3 flex flex-wrap items-end justify-between gap-2 px-1">
+              <div>
+                <h2 className="text-base font-semibold text-white">Technical indicators</h2>
+                <p className="text-xs text-gray-500">
+                  Calculated from closed {INTERVALS.find((i) => i.value === selectedInterval)?.label} candles
+                </p>
+              </div>
+              {indicators && <IndicatorSummary indicators={indicators} price={livePrice} />}
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {!indicators ? (
+                isLoadingChart ? (
+                  [...Array(4)].map((_, i) => <div key={i} className="h-64 skeleton" />)
+                ) : (
+                  <div className="card card-pad col-span-full text-center text-sm text-gray-400">
+                    Not enough price history on this timeframe to calculate indicators (needs 200 candles). Try a
+                    shorter interval.
+                  </div>
+                )
+              ) : (
+                <>
+                  <RSICard data={indicators.rsi} history={indicatorHistory.rsiHistory} />
+                  <MACDCard data={indicators.macd} history={indicatorHistory.macdHistory} />
+                  <BollingerBandsCard
+                    data={indicators.bollingerBands}
+                    currentPrice={livePrice}
+                    history={indicatorHistory.bbHistory}
+                  />
+                  <EMACard ema={indicators.ema} currentPrice={livePrice} />
+                </>
+              )}
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <footer className="border-t border-line">
+        <div className="mx-auto flex max-w-[1600px] flex-col gap-1 px-4 py-5 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <p>
+            Market data: Binance public API · CoinGecko · Alternative.me. AI analysis by{' '}
+            {analysis?.aiProvider === 'gemini' ? 'Gemini' : 'Claude'}.
           </p>
+          <p>Not financial advice.</p>
         </div>
       </footer>
 
-      {
-        showSearchDialog && (
-          <TradingPairSearch
-            onSelect={handleAddPair}
-            onClose={() => setShowSearchDialog(false)}
-            excludedSymbols={watchlistPairs}
-          />
-        )
-      }
-    </div >
+      {showSearchDialog && (
+        <TradingPairSearch
+          onSelect={handlePickPair}
+          onClose={() => setShowSearchDialog(false)}
+          excludedSymbols={watchlistPairs}
+          isWatchlistFull={watchlistFull}
+        />
+      )}
+    </div>
   );
 }

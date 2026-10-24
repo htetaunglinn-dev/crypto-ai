@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Header } from '@/components/Header';
 
 export default function SettingsPage() {
   const { data: session, status } = useSession();
@@ -101,9 +102,9 @@ export default function SettingsPage() {
 
   if (status === 'loading' || isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black">
+      <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-700 border-t-blue-500 mx-auto" />
+          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-gray-700 border-t-brand" />
           <p className="text-sm text-gray-400">Loading...</p>
         </div>
       </div>
@@ -111,8 +112,9 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black p-4">
-      <div className="mx-auto max-w-3xl">
+    <div className="min-h-screen">
+      <Header />
+      <div className="mx-auto max-w-3xl px-4 py-6 sm:py-10 animate-pop-in">
         <div className="mb-6">
           <Link
             href="/"
@@ -122,9 +124,9 @@ export default function SettingsPage() {
           </Link>
         </div>
 
-        <div className="rounded-lg border border-gray-800 bg-gray-900 p-8">
+        <div className="card p-6 sm:p-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white">Settings</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-white">Settings</h1>
             <p className="mt-2 text-sm text-gray-400">
               Manage your account and API configuration
             </p>
@@ -132,8 +134,8 @@ export default function SettingsPage() {
 
           <div className="space-y-8">
             <div>
-              <h2 className="text-xl font-semibold text-white mb-4">Account Information</h2>
-              <div className="rounded-lg border border-gray-800 bg-gray-950 p-4 space-y-3">
+              <h2 className="mb-3 text-base font-semibold text-white">Account Information</h2>
+              <div className="space-y-3 rounded-xl border border-line bg-surface-2/60 p-4">
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-400">Name</span>
                   <span className="text-sm font-medium text-white">{session?.user?.name}</span>
@@ -146,14 +148,14 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <h2 className="text-xl font-semibold text-white mb-4">AI Provider Configuration</h2>
+              <h2 className="mb-3 text-base font-semibold text-white">AI Provider Configuration</h2>
               <p className="text-sm text-gray-400 mb-4">
                 Choose your AI provider and add your API key to enable AI analysis features.
               </p>
 
               {message && (
                 <div
-                  className={`mb-4 rounded-md border p-3 ${
+                  className={`mb-4 rounded-xl border px-3.5 py-2.5 ${
                     message.type === 'success'
                       ? 'border-green-500/50 bg-green-500/10'
                       : 'border-red-500/50 bg-red-500/10'
@@ -170,7 +172,7 @@ export default function SettingsPage() {
               )}
 
               {hasKey && (
-                <div className="mb-4 rounded-lg border border-green-500/30 bg-green-500/10 p-4">
+                <div className="mb-4 rounded-xl border border-green-500/30 bg-green-500/10 p-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-green-500">
@@ -181,7 +183,7 @@ export default function SettingsPage() {
                     <button
                       onClick={handleRemoveApiKey}
                       disabled={isSaving}
-                      className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
+                      className="btn h-8 border border-red-500/40 px-3 text-xs text-red-400 hover:bg-red-500/10"
                     >
                       Remove
                     </button>
@@ -191,19 +193,32 @@ export default function SettingsPage() {
 
               <form onSubmit={handleSaveApiKey} className="space-y-4">
                 <div>
-                  <label htmlFor="aiProvider" className="block text-sm font-medium text-gray-300 mb-2">
+                  <label htmlFor="aiProvider" className="mb-1.5 block text-sm font-medium text-gray-300">
                     AI Provider
                   </label>
-                  <select
-                    id="aiProvider"
-                    value={aiProvider}
-                    onChange={(e) => setAiProvider(e.target.value as 'claude' | 'gemini')}
-                    className="w-full rounded-md border border-gray-700 bg-gray-800 px-4 py-2 text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="claude">Claude (Anthropic)</option>
-                    <option value="gemini">Gemini (Google)</option>
-                  </select>
-                  <p className="mt-1 text-xs text-gray-500">
+                  <div id="aiProvider" role="radiogroup" className="grid grid-cols-2 gap-2">
+                    {([
+                      { value: 'claude', name: 'Claude', by: 'Anthropic' },
+                      { value: 'gemini', name: 'Gemini', by: 'Google' },
+                    ] as const).map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={aiProvider === option.value}
+                        onClick={() => setAiProvider(option.value)}
+                        className={`rounded-xl border px-4 py-3 text-left transition cursor-pointer ${
+                          aiProvider === option.value
+                            ? 'border-brand/60 bg-brand/10 ring-1 ring-brand/40'
+                            : 'border-line-strong bg-surface-2 hover:border-gray-600'
+                        }`}
+                      >
+                        <div className="text-sm font-semibold text-white">{option.name}</div>
+                        <div className="text-xs text-gray-400">{option.by}</div>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500">
                     {aiProvider === 'claude' ? (
                       <>
                         Get your API key from{' '}
@@ -233,7 +248,7 @@ export default function SettingsPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="apiKey" className="block text-sm font-medium text-gray-300 mb-2">
+                  <label htmlFor="apiKey" className="mb-1.5 block text-sm font-medium text-gray-300">
                     {hasKey ? 'Update API Key' : 'API Key'}
                   </label>
                   <input
@@ -242,7 +257,7 @@ export default function SettingsPage() {
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                     placeholder={aiProvider === 'claude' ? 'sk-ant-...' : 'AIza...'}
-                    className="w-full rounded-md border border-gray-700 bg-gray-800 px-4 py-2 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="input"
                   />
                   <p className="mt-1 text-xs text-gray-500">
                     Your API key is encrypted and stored securely
@@ -252,22 +267,22 @@ export default function SettingsPage() {
                 <button
                   type="submit"
                   disabled={isSaving || !apiKey}
-                  className="rounded-md bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="btn btn-primary h-10"
                 >
                   {isSaving ? 'Saving...' : hasKey ? 'Update API Key' : 'Save API Key'}
                 </button>
               </form>
             </div>
 
-            <div className="border-t border-gray-800 pt-6">
-              <h2 className="text-xl font-semibold text-white mb-4">Features</h2>
+            <div className="border-t border-line pt-6">
+              <h2 className="mb-3 text-base font-semibold text-white">Features</h2>
               <div className="space-y-3 text-sm text-gray-400">
                 <div className="flex items-center gap-2">
-                  <span className="text-green-500">✓</span>
+                  <span className="text-up">✓</span>
                   <span>Real-time crypto price tracking</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-green-500">✓</span>
+                  <span className="text-up">✓</span>
                   <span>Technical indicators (RSI, MACD, EMA, Bollinger Bands)</span>
                 </div>
                 <div className="flex items-center gap-2">

@@ -2,9 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { connectToDatabase } from '@/lib/db/connection';
 import { User } from '@/lib/db/models';
+import { isDatabaseConfigured } from '@/lib/db/mongodb-client';
 import type { ApiResponse } from '@/types';
 
 export async function POST(request: NextRequest) {
+  if (!isDatabaseConfigured) {
+    return NextResponse.json<ApiResponse<null>>(
+      {
+        success: false,
+        error: 'Accounts are turned off because no database is configured. Set MONGODB_URI in .env.local to enable them.',
+      },
+      { status: 503 }
+    );
+  }
+
   try {
     const { name, email, password } = await request.json();
 

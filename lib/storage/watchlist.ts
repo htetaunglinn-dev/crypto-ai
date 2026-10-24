@@ -1,5 +1,5 @@
 const WATCHLIST_KEY = 'crypto-watchlist';
-const DEFAULT_PAIRS = ['SOLUSDT', 'BTCUSDT', 'ETHUSDT', 'LTCUSDT'];
+const DEFAULT_PAIRS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT'];
 const MAX_WATCHLIST_SIZE = 10;
 const MIN_WATCHLIST_SIZE = 1;
 
@@ -9,7 +9,7 @@ export interface WatchlistConfig {
 }
 
 /**
- * Load watchlist from sessionStorage
+ * Load watchlist from localStorage (persists across visits)
  * Returns default pairs if not found or invalid
  */
 export function loadWatchlist(): string[] {
@@ -18,7 +18,8 @@ export function loadWatchlist(): string[] {
   }
 
   try {
-    const stored = sessionStorage.getItem(WATCHLIST_KEY);
+    // Earlier versions kept the watchlist in sessionStorage; carry it over once
+    const stored = localStorage.getItem(WATCHLIST_KEY) ?? sessionStorage.getItem(WATCHLIST_KEY);
     if (!stored) {
       return DEFAULT_PAIRS;
     }
@@ -38,7 +39,7 @@ export function loadWatchlist(): string[] {
 }
 
 /**
- * Save watchlist to sessionStorage
+ * Save watchlist to localStorage
  */
 export function saveWatchlist(pairs: string[]): boolean {
   if (typeof window === 'undefined') {
@@ -50,7 +51,7 @@ export function saveWatchlist(pairs: string[]): boolean {
       pairs,
       lastUpdated: Date.now(),
     };
-    sessionStorage.setItem(WATCHLIST_KEY, JSON.stringify(config));
+    localStorage.setItem(WATCHLIST_KEY, JSON.stringify(config));
     return true;
   } catch (error) {
     console.error('Failed to save watchlist:', error);

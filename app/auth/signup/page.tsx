@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
+import { Logo } from '@/components/Header';
+import { useAppConfig } from '@/hooks/useAppConfig';
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -11,6 +13,7 @@ export default function SignUpPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const config = useAppConfig();
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -67,25 +70,35 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-black p-4">
-      <div className="w-full max-w-md">
-        <div className="rounded-lg border border-gray-800 bg-gray-900 p-8">
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="w-full max-w-md animate-pop-in">
+        <div className="mb-6 flex justify-center">
+          <Logo />
+        </div>
+        <div className="card p-6 sm:p-8">
           <div className="mb-8 text-center">
-            <h1 className="text-3xl font-bold text-white">Create Account</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-white">Create Account</h1>
             <p className="mt-2 text-sm text-gray-400">
               Start analyzing crypto markets with AI
             </p>
           </div>
 
           {error && (
-            <div className="mb-4 rounded-md border border-red-500/50 bg-red-500/10 p-3">
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2.5">
               <p className="text-sm text-red-500">{error}</p>
+            </div>
+          )}
+
+          {config && !config.database && (
+            <div className="mb-4 rounded-xl border border-yellow-500/30 bg-yellow-500/5 px-3.5 py-2.5 text-sm text-yellow-300">
+              Accounts are off because no database is configured. Add <code className="text-yellow-200">MONGODB_URI</code> to{' '}
+              <code className="text-yellow-200">.env.local</code> to enable sign-in and AI analysis. Live prices and charts work without it.
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="name" className="mb-1.5 block text-sm font-medium text-gray-300">
                 Name
               </label>
               <input
@@ -94,13 +107,13 @@ export default function SignUpPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="w-full rounded-md border border-gray-700 bg-gray-800 px-4 py-2 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="input"
                 placeholder="John Doe"
               />
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-300">
                 Email
               </label>
               <input
@@ -109,13 +122,13 @@ export default function SignUpPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full rounded-md border border-gray-700 bg-gray-800 px-4 py-2 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="input"
                 placeholder="you@example.com"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-300">
                 Password
               </label>
               <input
@@ -125,14 +138,14 @@ export default function SignUpPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full rounded-md border border-gray-700 bg-gray-800 px-4 py-2 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="input"
                 placeholder="••••••••"
               />
               <p className="mt-1 text-xs text-gray-500">Minimum 6 characters</p>
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="confirmPassword" className="mb-1.5 block text-sm font-medium text-gray-300">
                 Confirm Password
               </label>
               <input
@@ -141,7 +154,7 @@ export default function SignUpPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                className="w-full rounded-md border border-gray-700 bg-gray-800 px-4 py-2 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="input"
                 placeholder="••••••••"
               />
             </div>
@@ -149,7 +162,7 @@ export default function SignUpPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full rounded-md bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="btn btn-primary h-11 w-full"
             >
               {isLoading ? 'Creating account...' : 'Create Account'}
             </button>

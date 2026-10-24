@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { binanceService } from '@/lib/services';
+import { marketDataService } from '@/lib/services';
 import { IndicatorCalculator } from '@/lib/indicators';
 import { Indicator } from '@/lib/db/models';
 import { connectToDatabase } from '@/lib/db/connection';
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch historical data and calculate indicators
-    const historicalData = await binanceService.getHistoricalData(symbol, interval, 200);
+    const historicalData = await marketDataService.getHistoricalData(symbol, interval, 300);
 
     if (!historicalData.data || historicalData.data.length < 200) {
       return NextResponse.json<ApiResponse<null>>(

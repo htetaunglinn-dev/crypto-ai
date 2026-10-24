@@ -1,12 +1,26 @@
 /**
- * Format a number as USD currency
+ * Pick sensible decimals for a price: cents for large values, more precision for small coins
  */
-export function formatCurrency(value: number, decimals: number = 2): string {
+export function priceDecimals(value: number): number {
+  const abs = Math.abs(value);
+  if (abs === 0) return 2;
+  if (abs >= 1000) return 2;
+  if (abs >= 1) return abs >= 100 ? 2 : 3;
+  if (abs >= 0.01) return 4;
+  if (abs >= 0.0001) return 6;
+  return 8;
+}
+
+/**
+ * Format a number as USD currency. Without explicit decimals, precision adapts to the value.
+ */
+export function formatCurrency(value: number, decimals?: number): string {
+  const digits = decimals ?? priceDecimals(value);
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
   }).format(value);
 }
 
@@ -21,6 +35,9 @@ export function formatPercentage(value: number, decimals: number = 2): string {
  * Format large numbers with abbreviations (K, M, B)
  */
 export function formatLargeNumber(value: number): string {
+  if (value >= 1_000_000_000_000) {
+    return `$${(value / 1_000_000_000_000).toFixed(2)}T`;
+  }
   if (value >= 1_000_000_000) {
     return `$${(value / 1_000_000_000).toFixed(2)}B`;
   }
@@ -73,8 +90,8 @@ export function truncate(str: string, length: number): string {
  * Get color based on percentage value
  */
 export function getChangeColor(value: number): string {
-  if (value > 0) return 'text-green-500';
-  if (value < 0) return 'text-red-500';
+  if (value > 0) return 'text-up';
+  if (value < 0) return 'text-down';
   return 'text-gray-500';
 }
 

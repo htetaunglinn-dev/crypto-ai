@@ -6,12 +6,12 @@ A real-time cryptocurrency analysis platform powered by Claude AI, featuring use
 
 - **User Authentication**: Secure sign-up/sign-in with NextAuth.js
 - **Personal API Keys**: Users bring their own Anthropic API keys for AI analysis
-- **Real-time Crypto Data**: Live price tracking for BTC, ETH, BNB, SOL, and ADA via Binance API
+- **Real-time Crypto Data**: Live prices and candles for any Binance USDT pair, streamed over Binance's free public WebSocket (no API key needed)
 - **Candlestick Charts**: Interactive price charts with lightweight-charts library
 - **Technical Indicators**: RSI, MACD, EMA (9, 21, 50, 200), Bollinger Bands, and Volume Profile
 - **Claude AI Analysis**: Intelligent market analysis with trading signals, pattern recognition, and risk assessment
 - **Interactive Dashboard**: Clean, dark-mode optimized interface with real-time updates
-- **MongoDB Storage**: User accounts, API keys, and analysis caching
+- **MongoDB Storage** (optional): User accounts, API keys, and analysis caching. Without `MONGODB_URI` the dashboard still runs; sign-in and AI analysis are turned off. See `.env.example`.
 
 ## Tech Stack
 
@@ -21,7 +21,7 @@ A real-time cryptocurrency analysis platform powered by Claude AI, featuring use
 - **Backend**: Next.js API Routes, Node.js
 - **AI**: Anthropic Claude API (user-provided keys)
 - **Database**: MongoDB with Mongoose ODM
-- **Data Sources**: Binance API, CoinGecko API
+- **Data Sources** (all free, no keys): Binance public market data (`data-api.binance.vision`, `data-stream.binance.vision`, with `api.binance.com` / `api.binance.us` fallbacks), CoinGecko public API (coin names, logos, market caps, global stats), Alternative.me (Fear & Greed)
 - **Package Manager**: Bun
 
 ## Prerequisites

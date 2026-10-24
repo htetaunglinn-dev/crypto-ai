@@ -34,10 +34,10 @@ function EMACardComponent({ ema, currentPrice }: EMACardProps) {
   };
 
   return (
-    <div className={`rounded-lg border border-gray-800 bg-gradient-to-br ${getBackgroundGradient()} bg-gray-900 p-6 shadow-lg`}>
+    <div className={`card card-pad relative overflow-hidden bg-gradient-to-br ${getBackgroundGradient()}`}>
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-lg font-bold text-white">EMA Indicators</h3>
-        <span className={`rounded-full px-3 py-1 text-sm font-semibold whitespace-nowrap ${trend.color} ${trend.bg}`}>
+        <h3 className="text-sm font-semibold text-white">EMA Indicators</h3>
+        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${trend.color} ${trend.bg}`}>
           {trend.text}
         </span>
       </div>
@@ -45,29 +45,29 @@ function EMACardComponent({ ema, currentPrice }: EMACardProps) {
       <div className="mb-4 space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-gray-400">EMA 9</span>
-          <span className="text-lg font-bold text-amber-400">{formatCurrency(ema.ema9)}</span>
+          <span className="num text-sm font-semibold text-amber-400">{formatCurrency(ema.ema9)}</span>
         </div>
 
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-gray-400">EMA 21</span>
-          <span className="text-lg font-bold text-purple-400">{formatCurrency(ema.ema21)}</span>
+          <span className="num text-sm font-semibold text-purple-400">{formatCurrency(ema.ema21)}</span>
         </div>
 
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-gray-400">EMA 50</span>
-          <span className="text-lg font-bold text-pink-400">{formatCurrency(ema.ema50)}</span>
+          <span className="num text-sm font-semibold text-pink-400">{formatCurrency(ema.ema50)}</span>
         </div>
 
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-gray-400">EMA 200</span>
-          <span className="text-lg font-bold text-cyan-400">{formatCurrency(ema.ema200)}</span>
+          <span className="num text-sm font-semibold text-cyan-400">{formatCurrency(ema.ema200)}</span>
         </div>
       </div>
 
-      <div className="border-t border-gray-800 pt-4">
+      <div className="border-t border-line pt-4">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-gray-400">Price vs EMA200</span>
-          <span className={`rounded-full px-3 py-1 text-sm font-bold whitespace-nowrap ${above200 ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
+          <span className={`rounded-full px-3 py-1 num text-sm font-semibold whitespace-nowrap ${above200 ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
             {above200 ? 'Above ↑' : 'Below ↓'}
           </span>
         </div>

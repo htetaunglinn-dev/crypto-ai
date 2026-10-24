@@ -31,11 +31,11 @@ function FearGreedGaugeComponent({ data, history }: FearGreedGaugeProps) {
   };
 
   const getGradient = (value: number) => {
-    if (value <= 25) return 'from-red-500/20 to-transparent';
-    if (value <= 45) return 'from-orange-500/20 to-transparent';
-    if (value <= 55) return 'from-yellow-500/20 to-transparent';
-    if (value <= 75) return 'from-lime-500/20 to-transparent';
-    return 'from-green-500/20 to-transparent';
+    if (value <= 25) return 'from-red-500/10 to-transparent';
+    if (value <= 45) return 'from-orange-500/10 to-transparent';
+    if (value <= 55) return 'from-yellow-500/[0.07] to-transparent';
+    if (value <= 75) return 'from-lime-500/10 to-transparent';
+    return 'from-green-500/10 to-transparent';
   };
 
   useLayoutEffect(() => {
@@ -88,7 +88,7 @@ function FearGreedGaugeComponent({ data, history }: FearGreedGaugeProps) {
     });
     const range0 = axis.createAxisRange(rangeDataItem0);
     range0.get('axisFill')?.setAll({
-      fill: am5.color(0xef4444),
+      fill: am5.color(0xf4475d),
       fillOpacity: 0.8,
       visible: true,
     });
@@ -132,7 +132,7 @@ function FearGreedGaugeComponent({ data, history }: FearGreedGaugeProps) {
     });
     const range4 = axis.createAxisRange(rangeDataItem4);
     range4.get('axisFill')?.setAll({
-      fill: am5.color(0x10b981),
+      fill: am5.color(0x1fc786),
       fillOpacity: 0.8,
       visible: true,
     });
@@ -212,7 +212,7 @@ function FearGreedGaugeComponent({ data, history }: FearGreedGaugeProps) {
       })
     );
     extremeFearRange.get('axisFill')?.setAll({
-      fill: am5.color(0xef4444),
+      fill: am5.color(0xf4475d),
       fillOpacity: 0.1,
       visible: true,
     });
@@ -224,7 +224,7 @@ function FearGreedGaugeComponent({ data, history }: FearGreedGaugeProps) {
       })
     );
     extremeGreedRange.get('axisFill')?.setAll({
-      fill: am5.color(0x10b981),
+      fill: am5.color(0x1fc786),
       fillOpacity: 0.1,
       visible: true,
     });
@@ -236,8 +236,8 @@ function FearGreedGaugeComponent({ data, history }: FearGreedGaugeProps) {
         yAxis: yAxis,
         valueYField: 'value',
         valueXField: 'timestamp',
-        stroke: am5.color(0x3b82f6),
-        fill: am5.color(0x3b82f6),
+        stroke: am5.color(0x6675ff),
+        fill: am5.color(0x6675ff),
         tooltip: am5.Tooltip.new(root, {
           labelText: '{valueY}',
         }),
@@ -287,7 +287,7 @@ function FearGreedGaugeComponent({ data, history }: FearGreedGaugeProps) {
 
   if (!data) {
     return (
-      <div className="rounded-lg border border-gray-800 bg-gray-900 p-6 shadow-lg">
+      <div className="rounded-lg border border-gray-800">
         <div className="flex h-64 items-center justify-center">
           <div className="text-gray-500">Loading Fear & Greed Index...</div>
         </div>
@@ -298,16 +298,16 @@ function FearGreedGaugeComponent({ data, history }: FearGreedGaugeProps) {
   const colors = getColor(data.value);
 
   return (
-    <div className={`rounded-lg border border-gray-800 bg-gradient-to-br ${getGradient(data.value)} bg-gray-900 p-6 shadow-lg`}>
+    <div className={`card card-pad relative overflow-hidden bg-gradient-to-br ${getGradient(data.value)}`}>
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-lg font-bold text-white">Fear & Greed Index</h3>
-        <span className={`rounded-full px-3 py-1 text-sm font-semibold whitespace-nowrap ${colors.text} ${colors.bg}`}>
+        <h3 className="text-sm font-semibold text-white">Fear & Greed Index</h3>
+        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${colors.text} ${colors.bg}`}>
           {data.value_classification}
         </span>
       </div>
 
       <div className="mb-2">
-        <div className="text-center text-5xl font-bold text-white">{data.value}</div>
+        <div className="num text-center text-5xl font-semibold tracking-tight text-white">{data.value}</div>
       </div>
 
       <div ref={gaugeRef} className="h-40 w-full" />

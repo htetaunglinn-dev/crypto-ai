@@ -1,330 +1,313 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { KeyRound, Lock, RefreshCw, Sparkles } from "lucide-react";
 import type { ClaudeAnalysis } from "@/types";
 import type { FearGreedData, FearGreedHistoryPoint } from "@/types/fear-greed";
 import { TradingSignal } from "./TradingSignal";
 import { RiskScore } from "./RiskScore";
 import { FearGreedGauge } from "./FearGreedGauge";
-import { formatCurrency, formatRelativeTime } from "@/lib/utils";
+import { cn, formatCurrency, formatRelativeTime } from "@/lib/utils";
 
 interface ClaudeInsightsPanelProps {
+  authStatus: "authenticated" | "unauthenticated" | "loading";
   analysis: ClaudeAnalysis | null;
   isLoading: boolean;
+  error: string | null;
   onRefresh: () => void;
   fearGreedData: FearGreedData | null;
   fearGreedHistory: FearGreedHistoryPoint[];
 }
 
+const trendClass = (trend: string) =>
+  trend === "bullish" ? "text-up" : trend === "bearish" ? "text-down" : "text-yellow-400";
+
+function PanelHeader({
+  title,
+  subtitle,
+  action,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2.5">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand/30 to-brand-2/20 ring-1 ring-brand/30">
+          <Sparkles className="h-4 w-4 text-blue-300" />
+        </span>
+        <div>
+          <h2 className="text-sm font-semibold text-white">{title}</h2>
+          {subtitle && <p className="text-[11px] text-gray-500">{subtitle}</p>}
+        </div>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function EmptyState({
+  icon,
+  title,
+  body,
+  action,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="mt-4 rounded-xl border border-dashed border-line-strong p-5 text-center">
+      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-surface-3 text-gray-400">
+        {icon}
+      </div>
+      <p className="text-sm font-medium text-white">{title}</p>
+      <p className="mx-auto mt-1 max-w-xs text-xs leading-relaxed text-gray-400">{body}</p>
+      {action && <div className="mt-4">{action}</div>}
+    </div>
+  );
+}
+
 export function ClaudeInsightsPanel({
+  authStatus,
   analysis,
   isLoading,
+  error,
   onRefresh,
   fearGreedData,
   fearGreedHistory,
 }: ClaudeInsightsPanelProps) {
-  const [activeTab, setActiveTab] = useState<
-    "overview" | "patterns" | "levels"
-  >("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "patterns" | "levels">("overview");
+  const providerName = analysis?.aiProvider === "gemini" ? "Gemini" : "Claude";
+  const needsKey = !!error && /api key/i.test(error);
 
-  if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center rounded-lg border border-gray-800 bg-gray-900 p-8">
-        <div className="text-center">
-          <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-700 border-t-blue-500 mx-auto" />
-          <p className="text-sm text-gray-400">
-            AI is analyzing the market...
-          </p>
+  let body: React.ReactNode;
+  if (authStatus === "loading") {
+    body = <div className="mt-4 h-40 skeleton" />;
+  } else if (authStatus === "unauthenticated") {
+    body = (
+      <EmptyState
+        icon={<Lock className="h-4 w-4" />}
+        title="Unlock AI market analysis"
+        body="Sign in and add your own Claude or Gemini key to get trading signals, risk scores, chart patterns and key levels for any coin."
+        action={
+          <div className="flex justify-center gap-2">
+            <Link href="/auth/signup" className="btn btn-primary h-9">Create free account</Link>
+            <Link href="/auth/signin" className="btn btn-secondary h-9">Sign in</Link>
+          </div>
+        }
+      />
+    );
+  } else if (isLoading) {
+    body = (
+      <div className="mt-4 space-y-3">
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-600 border-t-brand" />
+          Analyzing price action and indicators…
         </div>
+        <div className="h-24 skeleton" />
+        <div className="h-16 skeleton" />
+        <div className="h-28 skeleton" />
       </div>
     );
-  }
+  } else if (needsKey) {
+    body = (
+      <EmptyState
+        icon={<KeyRound className="h-4 w-4" />}
+        title="Add your AI key"
+        body="AI analysis runs on your own Anthropic or Google Gemini API key. Add it in settings to start."
+        action={<Link href="/settings" className="btn btn-primary h-9">Open settings</Link>}
+      />
+    );
+  } else if (error) {
+    body = (
+      <EmptyState
+        icon={<RefreshCw className="h-4 w-4" />}
+        title="Analysis failed"
+        body={error}
+        action={<button onClick={onRefresh} className="btn btn-secondary h-9">Try again</button>}
+      />
+    );
+  } else if (!analysis) {
+    body = (
+      <EmptyState
+        icon={<Sparkles className="h-4 w-4" />}
+        title="No analysis yet"
+        body="Generate an AI read of this coin based on the daily chart and indicators."
+        action={<button onClick={onRefresh} className="btn btn-primary h-9">Generate analysis</button>}
+      />
+    );
+  } else {
+    body = (
+      <div className="mt-4 space-y-4">
+        <TradingSignal signal={analysis.signal} confidence={analysis.confidence} />
 
-  if (!analysis) {
-    return (
-      <div className="flex h-fit flex-col items-center justify-center rounded-lg border border-gray-800 bg-gray-900 p-6">
-        <div className="text-center space-y-3">
-          <div className="mx-auto h-12 w-12 rounded-full bg-gray-800 flex items-center justify-center">
-            <svg
-              className="h-6 w-6 text-gray-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-              />
-            </svg>
+        <div className="rounded-xl border border-line bg-surface-2/60 p-3.5">
+          <div className="mb-3 segmented w-full" role="tablist">
+            {(["overview", "patterns", "levels"] as const).map((tab) => (
+              <button
+                key={tab}
+                role="tab"
+                aria-selected={activeTab === tab}
+                data-active={activeTab === tab}
+                onClick={() => setActiveTab(tab)}
+                className="segmented-item flex-1 capitalize"
+              >
+                {tab}
+              </button>
+            ))}
           </div>
-          <p className="text-sm text-gray-400">No analysis available yet</p>
-          <button
-            onClick={onRefresh}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition"
-          >
-            Generate Analysis
-          </button>
+
+          {activeTab === "overview" && (
+            <div className="space-y-3">
+              <p className="text-sm leading-relaxed text-gray-200">{analysis.marketAnalysis.summary}</p>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-lg bg-surface-3/60 px-3 py-2">
+                  <div className="text-[11px] text-gray-500">Trend</div>
+                  <div className={cn("text-sm font-semibold capitalize", trendClass(analysis.marketAnalysis.trend))}>
+                    {analysis.marketAnalysis.trend}
+                  </div>
+                </div>
+                <div className="rounded-lg bg-surface-3/60 px-3 py-2">
+                  <div className="text-[11px] text-gray-500">Momentum</div>
+                  <div className="text-sm font-semibold capitalize text-white">{analysis.marketAnalysis.momentum}</div>
+                </div>
+              </div>
+
+              {analysis.marketAnalysis.insights.length > 0 && (
+                <ul className="space-y-1.5">
+                  {analysis.marketAnalysis.insights.map((insight, index) => (
+                    <li key={index} className="flex gap-2 text-xs leading-relaxed text-gray-300">
+                      <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-brand" />
+                      <span>{insight}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {(analysis.suggestedEntry || analysis.suggestedExit || analysis.stopLoss) && (
+                <div className="grid grid-cols-3 gap-2 border-t border-line pt-3">
+                  {[
+                    { label: "Entry", value: analysis.suggestedEntry, cls: "text-up" },
+                    { label: "Target", value: analysis.suggestedExit, cls: "text-blue-300" },
+                    { label: "Stop loss", value: analysis.stopLoss, cls: "text-down" },
+                  ].map(({ label, value, cls }) => (
+                    <div key={label}>
+                      <div className="text-[11px] text-gray-500">{label}</div>
+                      <div className={cn("num text-xs font-semibold", value ? cls : "text-gray-600")}>
+                        {value ? formatCurrency(value) : "—"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "patterns" && (
+            <div className="space-y-2">
+              {analysis.patterns.length > 0 ? (
+                analysis.patterns.map((pattern, index) => (
+                  <div key={index} className="rounded-lg bg-surface-3/60 p-3">
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <h4 className="text-sm font-semibold text-white">{pattern.name}</h4>
+                      <span
+                        className={cn(
+                          "pill",
+                          pattern.type === "bullish" ? "pill-up" : pattern.type === "bearish" ? "pill-down" : "pill-neutral"
+                        )}
+                      >
+                        {pattern.type} · {pattern.confidence}%
+                      </span>
+                    </div>
+                    <p className="text-xs leading-relaxed text-gray-400">{pattern.description}</p>
+                    {(pattern.targetPrice || pattern.stopLoss) && (
+                      <div className="num mt-2 flex gap-4 text-xs">
+                        {pattern.targetPrice && (
+                          <span className="text-gray-500">
+                            Target <span className="font-semibold text-up">{formatCurrency(pattern.targetPrice)}</span>
+                          </span>
+                        )}
+                        {pattern.stopLoss && (
+                          <span className="text-gray-500">
+                            Stop <span className="font-semibold text-down">{formatCurrency(pattern.stopLoss)}</span>
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p className="py-4 text-center text-sm text-gray-500">No patterns detected</p>
+              )}
+            </div>
+          )}
+
+          {activeTab === "levels" && (
+            <div className="grid grid-cols-2 gap-3">
+              {(
+                [
+                  { title: "Resistance", levels: analysis.marketAnalysis.keyLevels.resistance, prefix: "R", cls: "text-down bg-down/10" },
+                  { title: "Support", levels: analysis.marketAnalysis.keyLevels.support, prefix: "S", cls: "text-up bg-up/10" },
+                ] as const
+              ).map(({ title, levels, prefix, cls }) => (
+                <div key={title}>
+                  <h4 className="mb-1.5 text-[11px] text-gray-500">{title}</h4>
+                  {levels.length > 0 ? (
+                    <div className="space-y-1">
+                      {levels.map((level, index) => (
+                        <div key={index} className={cn("num flex items-center justify-between rounded-md px-2 py-1 text-xs font-semibold", cls)}>
+                          <span className="opacity-70">{prefix}{index + 1}</span>
+                          <span>{formatCurrency(level)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500">None identified</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+
+        <RiskScore assessment={analysis.riskAssessment} />
       </div>
     );
   }
 
   return (
-    <div className="flex h-full flex-col space-y-4">
-      <div className="flex items-center justify-between rounded-lg border border-gray-800 bg-gray-900 p-4">
-        <div>
-          <h2 className="text-lg font-bold text-white">
-            {analysis.aiProvider === 'gemini' ? 'Gemini' : 'Claude'} AI Insights
-          </h2>
-          <p className="text-xs text-gray-400">
-            Updated {formatRelativeTime(analysis.timestamp)}
-          </p>
-        </div>
-        <button
-          onClick={onRefresh}
-          disabled={isLoading}
-          className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition disabled:opacity-50"
-        >
-          Refresh
-        </button>
+    <div className="space-y-4">
+      <div className="card card-pad">
+        <PanelHeader
+          title="AI insights"
+          subtitle={
+            analysis && !isLoading
+              ? `${providerName} · daily timeframe · ${formatRelativeTime(analysis.timestamp)}`
+              : "Signals, risk and key levels"
+          }
+          action={
+            analysis && !isLoading ? (
+              <button onClick={onRefresh} className="btn btn-secondary h-8 px-2.5 text-xs" aria-label="Refresh analysis">
+                <RefreshCw className="h-3.5 w-3.5" />
+                Refresh
+              </button>
+            ) : undefined
+          }
+        />
+        {body}
       </div>
 
-      <TradingSignal
-        signal={analysis.signal}
-        confidence={analysis.confidence}
-      />
-
-      <RiskScore assessment={analysis.riskAssessment} />
-
-      <FearGreedGauge data={fearGreedData} history={fearGreedHistory} />
-
-      <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
-        <div className="mb-4 flex space-x-2 border-b border-gray-800">
-          {(["overview", "patterns", "levels"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`pb-2 text-sm font-medium transition ${
-                activeTab === tab
-                  ? "border-b-2 border-blue-500 text-blue-500"
-                  : "text-gray-400 hover:text-gray-300"
-              }`}
-            >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
-        </div>
-
-        {activeTab === "overview" && (
-          <div className="space-y-3">
-            <div>
-              <h4 className="mb-2 text-xs font-semibold text-gray-400">
-                Market Summary
-              </h4>
-              <p className="text-sm text-gray-300">
-                {analysis.marketAnalysis.summary}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <span className="text-xs text-gray-400">Trend</span>
-                <p
-                  className={`text-sm font-semibold ${
-                    analysis.marketAnalysis.trend === "bullish"
-                      ? "text-green-500"
-                      : analysis.marketAnalysis.trend === "bearish"
-                      ? "text-red-500"
-                      : "text-yellow-500"
-                  }`}
-                >
-                  {analysis.marketAnalysis.trend.toUpperCase()}
-                </p>
-              </div>
-
-              <div>
-                <span className="text-xs text-gray-400">Momentum</span>
-                <p className="text-sm font-semibold text-white">
-                  {analysis.marketAnalysis.momentum}
-                </p>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="mb-2 text-xs font-semibold text-gray-400">
-                Key Insights
-              </h4>
-              <ul className="space-y-1">
-                {analysis.marketAnalysis.insights.map((insight, index) => (
-                  <li
-                    key={index}
-                    className="text-xs text-gray-300 flex items-start"
-                  >
-                    <span className="mr-2 text-blue-500">→</span>
-                    <span>{insight}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {(analysis.suggestedEntry ||
-              analysis.suggestedExit ||
-              analysis.stopLoss) && (
-              <div className="border-t border-gray-800 pt-3">
-                <h4 className="mb-2 text-xs font-semibold text-gray-400">
-                  Price Targets
-                </h4>
-                <div className="space-y-1">
-                  {analysis.suggestedEntry && (
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-400">Entry:</span>
-                      <span className="font-semibold text-green-500">
-                        {formatCurrency(analysis.suggestedEntry)}
-                      </span>
-                    </div>
-                  )}
-                  {analysis.suggestedExit && (
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-400">Exit:</span>
-                      <span className="font-semibold text-blue-500">
-                        {formatCurrency(analysis.suggestedExit)}
-                      </span>
-                    </div>
-                  )}
-                  {analysis.stopLoss && (
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-400">Stop Loss:</span>
-                      <span className="font-semibold text-red-500">
-                        {formatCurrency(analysis.stopLoss)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "patterns" && (
-          <div className="space-y-3">
-            {analysis.patterns.length > 0 ? (
-              analysis.patterns.map((pattern, index) => (
-                <div
-                  key={index}
-                  className="rounded-md border border-gray-800 bg-gray-950 p-3"
-                >
-                  <div className="mb-2 flex items-center justify-between">
-                    <h4 className="text-sm font-semibold text-white">
-                      {pattern.name}
-                    </h4>
-                    <span
-                      className={`text-xs font-medium ${
-                        pattern.type === "bullish"
-                          ? "text-green-500"
-                          : pattern.type === "bearish"
-                          ? "text-red-500"
-                          : "text-yellow-500"
-                      }`}
-                    >
-                      {pattern.type.toUpperCase()} ({pattern.confidence}%)
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-400">{pattern.description}</p>
-
-                  {(pattern.targetPrice || pattern.stopLoss) && (
-                    <div className="mt-2 flex gap-3 text-xs">
-                      {pattern.targetPrice && (
-                        <div>
-                          <span className="text-gray-500">Target: </span>
-                          <span className="font-semibold text-green-500">
-                            {formatCurrency(pattern.targetPrice)}
-                          </span>
-                        </div>
-                      )}
-                      {pattern.stopLoss && (
-                        <div>
-                          <span className="text-gray-500">SL: </span>
-                          <span className="font-semibold text-red-500">
-                            {formatCurrency(pattern.stopLoss)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))
-            ) : (
-              <p className="text-center text-sm text-gray-400">
-                No patterns detected
-              </p>
-            )}
-          </div>
-        )}
-
-        {activeTab === "levels" && (
-          <div className="space-y-4">
-            <div>
-              <h4 className="mb-2 text-xs font-semibold text-gray-400">
-                Support Levels
-              </h4>
-              {analysis.marketAnalysis.keyLevels.support.length > 0 ? (
-                <div className="space-y-1">
-                  {analysis.marketAnalysis.keyLevels.support.map(
-                    (level, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between rounded bg-green-500/10 px-2 py-1"
-                      >
-                        <span className="text-xs text-gray-400">
-                          S{index + 1}
-                        </span>
-                        <span className="text-sm font-semibold text-green-500">
-                          {formatCurrency(level)}
-                        </span>
-                      </div>
-                    )
-                  )}
-                </div>
-              ) : (
-                <p className="text-xs text-gray-500">
-                  No support levels identified
-                </p>
-              )}
-            </div>
-
-            <div>
-              <h4 className="mb-2 text-xs font-semibold text-gray-400">
-                Resistance Levels
-              </h4>
-              {analysis.marketAnalysis.keyLevels.resistance.length > 0 ? (
-                <div className="space-y-1">
-                  {analysis.marketAnalysis.keyLevels.resistance.map(
-                    (level, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between rounded bg-red-500/10 px-2 py-1"
-                      >
-                        <span className="text-xs text-gray-400">
-                          R{index + 1}
-                        </span>
-                        <span className="text-sm font-semibold text-red-500">
-                          {formatCurrency(level)}
-                        </span>
-                      </div>
-                    )
-                  )}
-                </div>
-              ) : (
-                <p className="text-xs text-gray-500">
-                  No resistance levels identified
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
+      {/* The gauge builds its charts on mount, so mount it once data is here */}
+      {fearGreedData ? (
+        <FearGreedGauge data={fearGreedData} history={fearGreedHistory} />
+      ) : (
+        <div className="h-80 skeleton" />
+      )}
     </div>
   );
 }

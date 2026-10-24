@@ -65,7 +65,7 @@ function BollingerBandsCardComponent({ data, currentPrice, history }: BollingerB
         yAxis: yAxis,
         valueYField: 'upper',
         valueXField: 'time',
-        stroke: am5.color(0x3b82f6),
+        stroke: am5.color(0x6675ff),
       })
     );
     upperSeries.strokes.template.setAll({ strokeWidth: 1, strokeDasharray: [3, 3], strokeOpacity: 0.5 });
@@ -89,7 +89,7 @@ function BollingerBandsCardComponent({ data, currentPrice, history }: BollingerB
         yAxis: yAxis,
         valueYField: 'lower',
         valueXField: 'time',
-        stroke: am5.color(0x3b82f6),
+        stroke: am5.color(0x6675ff),
       })
     );
     lowerSeries.strokes.template.setAll({ strokeWidth: 1, strokeDasharray: [3, 3], strokeOpacity: 0.5 });
@@ -113,7 +113,7 @@ function BollingerBandsCardComponent({ data, currentPrice, history }: BollingerB
     const range = upperSeries.createAxisRange(rangeDataItem);
 
     range.fills?.template.setAll({
-      fill: am5.color(0x3b82f6),
+      fill: am5.color(0x6675ff),
       fillOpacity: 0.1,
       visible: true,
     });
@@ -152,9 +152,9 @@ function BollingerBandsCardComponent({ data, currentPrice, history }: BollingerB
   }, [history]);
 
   return (
-    <div className="rounded-lg border border-gray-800 bg-gradient-to-br from-blue-500/10 to-transparent bg-gray-900 p-6 shadow-lg">
+    <div className="card card-pad relative overflow-hidden bg-gradient-to-br from-blue-500/[0.07] to-transparent">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-lg font-bold text-white">Bollinger Bands</h3>
+        <h3 className="text-sm font-semibold text-white">Bollinger Bands</h3>
         {isSqueeze && (
           <span className="animate-pulse rounded-full bg-orange-500/20 px-3 py-1 text-xs font-semibold text-orange-500 whitespace-nowrap">
             Squeeze ⚡
@@ -165,24 +165,24 @@ function BollingerBandsCardComponent({ data, currentPrice, history }: BollingerB
       <div className="mb-4 grid grid-cols-3 gap-2">
         <div>
           <span className="text-xs font-medium text-gray-400">Upper</span>
-          <div className="text-sm font-bold text-blue-400">{formatCurrency(data.upper)}</div>
+          <div className="num text-sm font-semibold text-blue-400">{formatCurrency(data.upper)}</div>
         </div>
         <div>
           <span className="text-xs font-medium text-gray-400">Middle</span>
-          <div className="text-sm font-bold text-violet-400">{formatCurrency(data.middle)}</div>
+          <div className="num text-sm font-semibold text-violet-400">{formatCurrency(data.middle)}</div>
         </div>
         <div>
           <span className="text-xs font-medium text-gray-400">Lower</span>
-          <div className="text-sm font-bold text-blue-400">{formatCurrency(data.lower)}</div>
+          <div className="num text-sm font-semibold text-blue-400">{formatCurrency(data.lower)}</div>
         </div>
       </div>
 
       <div ref={chartRef} className="mb-3 h-32 w-full" />
 
-      <div className="flex items-center justify-between border-t border-gray-800 pt-3">
+      <div className="flex items-center justify-between border-t border-line pt-3">
         <div>
           <span className="text-xs font-medium text-gray-400">Bandwidth</span>
-          <div className="text-sm font-bold text-white">{data.bandwidth.toFixed(2)}%</div>
+          <div className="num text-sm font-semibold text-white">{data.bandwidth.toFixed(2)}%</div>
         </div>
         <div>
           <span className={`rounded-full px-2 py-1 text-xs font-bold whitespace-nowrap ${
